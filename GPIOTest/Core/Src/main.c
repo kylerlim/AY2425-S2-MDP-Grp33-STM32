@@ -74,7 +74,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  uint8_t hello_mdp [30] = "Hello MDP Grp33";
+  uint8_t hello_mdp [30] = "Goodbye MDP Grp33";
   uint8_t str1 [30] = "STM32 Team";
   /* USER CODE END Init */
 
