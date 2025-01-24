@@ -1,3 +1,22 @@
+# Ignore STM32CubeIDE specific metadata
+.metadata/
+.ipr
+.iws
+.idea/
+
+# Ignore build artifacts and output files
+Debug/
+Release/
+*.elf
+*.bin
+*.hex
+*.map
+*.o
+*.d
+*.lst
+*.su
+*.axf
+
 # Prerequisites
 *.d
 
@@ -50,3 +69,15 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Temporary files and system-specific files
+*.swp
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Ignore hidden files
+._*
+
+# Ignore launch configurations
+*.launch
