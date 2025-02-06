@@ -41,7 +41,11 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim8;
+
+UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart3;
 
 /* Definitions for DriveForward */
 osThreadId_t DriveForwardHandle;
@@ -51,13 +55,17 @@ const osThreadAttr_t DriveForward_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* USER CODE BEGIN PV */
-
+uint8_t task1 [30] = "Task1";
+uint8_t task2 [30] = "Task2";
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM8_Init(void);
+static void MX_TIM1_Init(void);
+static void MX_USART3_UART_Init(void);
+static void MX_USART1_UART_Init(void);
 void driveForwardTask(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -66,7 +74,7 @@ void driveForwardTask(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint8_t aRxBuffer [30];
 /* USER CODE END 0 */
 
 /**
@@ -88,6 +96,7 @@ int main(void)
   /* USER CODE BEGIN Init */
 //  uint8_t hello_mdp [30] = "Goodbye MDP Grp33";
 //  uint8_t str1 [30] = "STM32 Team";
+
 //
 //  uint16_t pwmVal = 200;
   /* USER CODE END Init */
@@ -102,8 +111,13 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM8_Init();
+  MX_TIM1_Init();
+  MX_USART3_UART_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
+
+  HAL_UART_Receive_IT(&huart3, (uint8_t *) aRxBuffer, 30);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -229,6 +243,70 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 160;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 1000;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
   * @brief TIM8 Initialization Function
   * @param None
   * @retval None
@@ -307,6 +385,72 @@ static void MX_TIM8_Init(void)
 }
 
 /**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 115200;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -368,7 +512,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	UNUSED(huart);
 
+	HAL_UART_Transmit(&huart3, (uint8_t *) aRxBuffer, 30, 0xFFFF);
+
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_driveForwardTask */
@@ -381,14 +531,22 @@ static void MX_GPIO_Init(void)
 void driveForwardTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-	uint16_t pwmVal = 0;
+  uint8_t string [20] = "Straight-line";
+  OLED_Clear();
+  OLED_ShowString(10, 10, string);
+  uint16_t pwmVal = 0;
+  uint16_t servoVal = 146;
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
   /* Infinite loop */
-  for(;;)
-  {
-	  while(pwmVal < 4000)
+//  for(;;)
+//  {
+//	  HAL_UART_Transmit(&huart3, (uint8_t *) &ch, 1, 0xFFFF);                                                                                                                       
+//	  ch++;
+	  htim1.Instance->CCR4 = servoVal;
+	  while(pwmVal < 2000)
 	  	  {
 	  		  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
 	  		  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
@@ -397,12 +555,22 @@ void driveForwardTask(void *argument)
 	  		  pwmVal += 100;
 	  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
 	  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
-	  		  HAL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin); // turn on/off buzzer
-
-	  		  osDelay(200);
+//	  		  HAL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin); // turn on/off buzzer
+	  		  osDelay(300);
 	  	  }
-    osDelay(1000);
-  }
+	  pwmVal = -600;
+
+	  while(pwmVal != 0){
+
+
+  		  pwmVal += 200;
+
+  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+	  }
+	  vTaskDelete(NULL);
+
+//  }
   /* USER CODE END 5 */
 }
 
