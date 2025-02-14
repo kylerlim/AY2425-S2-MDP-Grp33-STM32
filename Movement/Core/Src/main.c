@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+uint16_t SERVO_STRAIGHT = 146;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -482,46 +482,41 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void driveForwardTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-//  uint8_t string [20] = "Straight-line";
-//  OLED_Clear();
-//  OLED_ShowString(10, 10, string);
-  uint16_t pwmVal = 0;
-  uint16_t servoVal = 146;
+uint16_t pwmVal = 0;
+  uint16_t servoVal = SERVO_STRAIGHT;
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
-  /* Infinite loop */
-//  for(;;)
-//  {
-//	  HAL_UART_Transmit(&huart3, (uint8_t *) &ch, 1, 0xFFFF);                                                                                                                       
-//	  ch++;
+  htim1.Instance->CCR4 = 100; // left callibration
+  osDelay(1000);
+  htim1.Instance->CCR4 = 180; // right callibration
+  osDelay(1000);
 	  htim1.Instance->CCR4 = servoVal;
-	  while(pwmVal < 2000)
-	  	  {
-	  		  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
-	  		  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
-	  		  HAL_GPIO_WritePin(GPIOA,BIN2_Pin, GPIO_PIN_SET);
+	  while(pwmVal < 1200)
+		  {
+			  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
+			  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
+			  HAL_GPIO_WritePin(GPIOA,BIN2_Pin, GPIO_PIN_SET);
 			  HAL_GPIO_WritePin(GPIOA,BIN1_Pin, GPIO_PIN_RESET);
-	  		  pwmVal += 100;
-	  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-	  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
-//	  		  HAL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin); // turn on/off buzzer
-	  		  osDelay(300);
-	  	  }
+			  pwmVal += 100;
+			  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+			  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+			  osDelay(500);
+		  }
+	  osDelay(3000);
 	  pwmVal = -600;
 
 	  while(pwmVal != 0){
 
 
-  		  pwmVal += 200;
+		  pwmVal += 200;
 
-  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
 	  }
 	  vTaskDelete(NULL);
 
-//  }
   /* USER CODE END 5 */
 }
 
