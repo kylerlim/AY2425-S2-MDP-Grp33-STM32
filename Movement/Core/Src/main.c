@@ -38,6 +38,7 @@ uint16_t SERVO_LEFT = 110;
 uint16_t SERVO_RIGHT = 220;
 int e_brake = 0;
 int times_acceptable = 0;
+volatile int user_distance = 0;
 
 /* USER CODE END PD */
 
@@ -498,10 +499,11 @@ void turnLeft(){
 	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
 	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
 
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal / 2);  // Slow left motor
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);      // Normal right motor
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);  // Normal right motor motor
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal/2);      // Slow left motor
 
-	  osDelay(3000);  // Adjust delay based on how sharp the turn should be
+	  // 4300 for perfect 90 left
+	  osDelay(2500);  // Adjust delay based on how sharp the turn should be
 
 	  // Reset servo to straight and stop motors
 	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
@@ -511,6 +513,37 @@ void turnLeft(){
 	  osDelay(3000);
 
 }
+
+void turnLeftReverse() {
+    uint16_t pwmVal = 2000;  // Set an initial speed
+    uint16_t servoVal = SERVO_LEFT;  // Turn the wheels left
+
+    // Start PWM for servo and motors
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+    // Reverse the motor directions
+    HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);  // Left motor reverse
+    HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);  // Right motor reverse
+    HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
+
+    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);      // Normal right motor
+    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal / 2);  // Slow left motor (for turning)
+
+    //osDelay(200);
+    htim1.Instance->CCR4 = servoVal;  // Turn wheels left
+
+    osDelay(2300);  // Adjust delay based on how sharp the turn should be
+
+    // Reset servo to straight and stop motors
+    htim1.Instance->CCR4 = SERVO_STRAIGHT;
+    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+    osDelay(3000);
+}
+
 
 void turnRight(){
 
@@ -528,20 +561,47 @@ void turnRight(){
 	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
 	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
 
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);  // Slow left motor
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal / 2);      // Normal right motor
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal/2);  // Slow left motor
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);      // Normal right motor
 
-	  osDelay(3000);  // Adjust delay based on how sharp the turn should be
+	  // 3600 for perfect 90 right
+	  osDelay(1800);  // Adjust delay based on how sharp the turn should be
 
 	  // Reset servo to straight and stop motors
 	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
 	  osDelay(3000);
-
 }
 
+void turnRightReverse() {
+    uint16_t pwmVal = 2000;  // Set an initial speed
+    uint16_t servoVal = SERVO_RIGHT;  // Turn the wheels right
 
+    // Start PWM for servo and motors
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+    htim1.Instance->CCR4 = servoVal;  // Turn wheels right
+
+    // Reverse the motor directions
+    HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);  // Left motor reverse
+    HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);  // Right motor reverse
+    HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
+
+    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal / 2);  // Slow right motor (for turning)
+    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);      // Normal left motor (for sharper turn)
+
+    osDelay(1800);  // Adjust delay based on how sharp the turn should be
+
+    // Reset servo to straight and stop motors
+    htim1.Instance->CCR4 = SERVO_STRAIGHT;
+    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+    osDelay(3000);
+}
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
@@ -564,43 +624,41 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void driveForwardTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-osDelay(1000000);
- uint16_t pwmVal = 0;
- uint16_t servoVal = SERVO_STRAIGHT;
- HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
- HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
- HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+	osDelay(1000000);
+	uint16_t pwmVal = 0;
+	uint16_t servoVal = SERVO_STRAIGHT;
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
- htim1.Instance->CCR4 = 100; // left callibration
- osDelay(1000);
- htim1.Instance->CCR4 = 180; // right callibration
- osDelay(1000);
-	  htim1.Instance->CCR4 = servoVal;
-	  while(pwmVal < 1200)
-		  {
-			  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
-			  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
-			  HAL_GPIO_WritePin(GPIOA,BIN2_Pin, GPIO_PIN_SET);
-			  HAL_GPIO_WritePin(GPIOA,BIN1_Pin, GPIO_PIN_RESET);
-			  pwmVal += 100;
-			  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-			  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
-			  osDelay(500);
-		  }
-	  osDelay(3000);
-	  pwmVal = -600;
-
-	  while(pwmVal != 0){
-
-
-		  pwmVal += 200;
-
+	htim1.Instance->CCR4 = 100; // left callibration
+	osDelay(1000);
+	htim1.Instance->CCR4 = 180; // right callibration
+	osDelay(1000);
+	htim1.Instance->CCR4 = servoVal;
+	while(pwmVal < 1200)
+	  {
+		  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(GPIOA,BIN2_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(GPIOA,BIN1_Pin, GPIO_PIN_RESET);
+		  pwmVal += 100;
 		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
 		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+		  osDelay(500);
 	  }
-	  vTaskDelete(NULL);
+	osDelay(3000);
+	pwmVal = -600;
+
+	while(pwmVal != 0){
 
 
+	  pwmVal += 200;
+
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+	}
+	vTaskDelete(NULL);
   /* USER CODE END 5 */
 }
 
@@ -627,17 +685,16 @@ void USARTR3x(void *argument)
 	osDelay(2000);
 	OLED_Clear();
 
-  osDelay(1000);
+	osDelay(1000);
 
-
-  /* Infinite loop */
-  for(;;)
-  {
+	/* Infinite loop */
+	for(;;)
+	{
 	  sprintf(string, "%s\0", aRxBuffer);
 	  OLED_ShowString(10, 10, string);
 	  OLED_Refresh_Gram();
 	osDelay(1000);
-  }
+	}
   /* USER CODE END USARTR3x */
 }
 
@@ -659,7 +716,10 @@ void turnChecks(void *argument)
   {
 	  turnLeft();
 //	  osDelay(5000);
-	  turnRight();
+	  //turnRight();
+	  //turnRightReverse();
+	  turnLeftReverse();
+
 
   }
   /* USER CODE END turnChecks */
