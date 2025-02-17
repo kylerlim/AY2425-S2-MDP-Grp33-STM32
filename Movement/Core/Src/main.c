@@ -32,6 +32,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+uint16_t pwmVal_servo = 146;
+uint16_t SERVO_STRAIGHT = 146;
+uint16_t SERVO_LEFT = 110;
+uint16_t SERVO_RIGHT = 220;
+int e_brake = 0;
+int times_acceptable = 0;
 
 /* USER CODE END PD */
 
@@ -44,7 +50,6 @@
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim8;
 
-UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
 
 /* Definitions for DriveForward */
@@ -53,6 +58,20 @@ const osThreadAttr_t DriveForward_attributes = {
   .name = "DriveForward",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for USART3Receive */
+osThreadId_t USART3ReceiveHandle;
+const osThreadAttr_t USART3Receive_attributes = {
+  .name = "USART3Receive",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for turnCheck */
+osThreadId_t turnCheckHandle;
+const osThreadAttr_t turnCheck_attributes = {
+  .name = "turnCheck",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
 uint8_t task1 [30] = "Task1";
@@ -65,8 +84,11 @@ static void MX_GPIO_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_USART3_UART_Init(void);
-static void MX_USART1_UART_Init(void);
 void driveForwardTask(void *argument);
+void USARTR3x(void *argument);
+void turnChecks(void *argument);
+void turnLeft();
+void turnRight();
 
 /* USER CODE BEGIN PFP */
 
@@ -74,7 +96,7 @@ void driveForwardTask(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint8_t aRxBuffer [30];
+uint8_t aRxBuffer [20];
 /* USER CODE END 0 */
 
 /**
@@ -113,7 +135,6 @@ int main(void)
   MX_TIM8_Init();
   MX_TIM1_Init();
   MX_USART3_UART_Init();
-  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
 
@@ -143,6 +164,12 @@ int main(void)
   /* creation of DriveForward */
   DriveForwardHandle = osThreadNew(driveForwardTask, NULL, &DriveForward_attributes);
 
+  /* creation of USART3Receive */
+  USART3ReceiveHandle = osThreadNew(USARTR3x, NULL, &USART3Receive_attributes);
+
+  /* creation of turnCheck */
+  turnCheckHandle = osThreadNew(turnChecks, NULL, &turnCheck_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -160,40 +187,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  //HAL_StatusTypeDef HAL_TIM_PWM_Start(TIM_HandleTypeDef *htim, uint32_t Channel)
-//	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-//
-//	  while(pwmVal < 4000)
-//	  {
-//		  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
-//		  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
-//		  pwmVal += 100;
-//		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-//		  HAL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin); // turn on/off buzzer
 
-//		  HAL_DELAY(5000);
-	  }
-
-//	  while(pwmVal > 0)
-//	  {
-//		  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
-//		  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
-//		  pwmVal -= 100;
-//		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-////		  HAL_DELAY(5000);
-//	  }
-
-//	  OLED_ShowString(5, 10, hello_mdp); // display message 1
-//	  OLED_Refresh_Gram();
-//	  HAL_Delay(3000); // delay for 3 seconds
-//	  OLED_Clear(); // clear screen
-//	  HAL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin); // turn on/off buzzer
-//	  HAL_Delay(3000); // delay for 3 seconds
-//	  HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin); //turn on/off LED3
-//	  OLED_ShowString(10, 10, str1); // display message 2
-//	  OLED_Refresh_Gram();
-//	  HAL_Delay(3000); // delay for 3 seconds
-//	  OLED_Clear();
+  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -385,39 +380,6 @@ static void MX_TIM8_Init(void)
 }
 
 /**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART1_Init 0 */
-
-  /* USER CODE END USART1_Init 0 */
-
-  /* USER CODE BEGIN USART1_Init 1 */
-
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
-
-}
-
-/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -512,6 +474,75 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void blinkLED3(int period){
+	  HAL_GPIO_WritePin(GPIOE,LED3_Pin, GPIO_PIN_SET);
+	  osDelay(period);
+	  HAL_GPIO_WritePin(GPIOE,LED3_Pin, GPIO_PIN_RESET);
+}
+
+
+void turnLeft(){
+
+	  uint16_t pwmVal = 2000;  // Set an initial speed
+	  uint16_t servoVal = SERVO_LEFT;  // Assuming SERVO_LEFT is defined for a left turn
+	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+	  htim1.Instance->CCR4 = servoVal;  // Turn the wheels left
+
+	  // Reduce speed of the left wheels while keeping the right wheels moving
+	  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal / 2);  // Slow left motor
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);      // Normal right motor
+
+	  osDelay(3000);  // Adjust delay based on how sharp the turn should be
+
+	  // Reset servo to straight and stop motors
+	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+
+	  osDelay(3000);
+
+}
+
+void turnRight(){
+
+	  uint16_t pwmVal = 2000;  // Set an initial speed
+	  uint16_t servoVal = SERVO_RIGHT;  // Assuming SERVO_LEFT is defined for a left turn
+	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+	  htim1.Instance->CCR4 = servoVal;  // Turn the wheels left
+
+	  // Reduce speed of the left wheels while keeping the right wheels moving
+	  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);  // Slow left motor
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal / 2);      // Normal right motor
+
+	  osDelay(3000);  // Adjust delay based on how sharp the turn should be
+
+	  // Reset servo to straight and stop motors
+	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+	  osDelay(3000);
+
+}
+
+
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	UNUSED(huart);
@@ -528,50 +559,110 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   * @retval None
   */
 /* USER CODE END Header_driveForwardTask */
+// TODO: rewrite as function.
+// write function for move forward accepting distance as argument
 void driveForwardTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  uint8_t string [20] = "Straight-line";
-  OLED_Clear();
-  OLED_ShowString(10, 10, string);
-  uint16_t pwmVal = 0;
-  uint16_t servoVal = 146;
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+osDelay(1000000);
+ uint16_t pwmVal = 0;
+ uint16_t servoVal = SERVO_STRAIGHT;
+ HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+ HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+ HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
-  /* Infinite loop */
-//  for(;;)
-//  {
-//	  HAL_UART_Transmit(&huart3, (uint8_t *) &ch, 1, 0xFFFF);                                                                                                                       
-//	  ch++;
+ htim1.Instance->CCR4 = 100; // left callibration
+ osDelay(1000);
+ htim1.Instance->CCR4 = 180; // right callibration
+ osDelay(1000);
 	  htim1.Instance->CCR4 = servoVal;
-	  while(pwmVal < 2000)
-	  	  {
-	  		  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
-	  		  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
-	  		  HAL_GPIO_WritePin(GPIOA,BIN2_Pin, GPIO_PIN_SET);
+	  while(pwmVal < 1200)
+		  {
+			  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
+			  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
+			  HAL_GPIO_WritePin(GPIOA,BIN2_Pin, GPIO_PIN_SET);
 			  HAL_GPIO_WritePin(GPIOA,BIN1_Pin, GPIO_PIN_RESET);
-	  		  pwmVal += 100;
-	  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-	  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
-//	  		  HAL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin); // turn on/off buzzer
-	  		  osDelay(300);
-	  	  }
+			  pwmVal += 100;
+			  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+			  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+			  osDelay(500);
+		  }
+	  osDelay(3000);
 	  pwmVal = -600;
 
 	  while(pwmVal != 0){
 
 
-  		  pwmVal += 200;
+		  pwmVal += 200;
 
-  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-  		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
 	  }
 	  vTaskDelete(NULL);
 
-//  }
+
   /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_USARTR3x */
+/**
+* @brief Function implementing the USART3Receive thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_USARTR3x */
+void USARTR3x(void *argument)
+{
+  /* USER CODE BEGIN USARTR3x */
+	uint8_t string [20] = "READY";
+
+	uint8_t * ch = &string[0];
+
+	for (int i = 0; i < 5; i++){
+	  HAL_UART_Transmit(&huart3, ch, 1, 0xFFFF);
+	  ch ++;
+	}
+	OLED_ShowString(10, 10, string);
+	OLED_Refresh_Gram();
+	osDelay(2000);
+	OLED_Clear();
+
+  osDelay(1000);
+
+
+  /* Infinite loop */
+  for(;;)
+  {
+	  sprintf(string, "%s\0", aRxBuffer);
+	  OLED_ShowString(10, 10, string);
+	  OLED_Refresh_Gram();
+	osDelay(1000);
+  }
+  /* USER CODE END USARTR3x */
+}
+
+/* USER CODE BEGIN Header_turnChecks */
+/**
+* @brief Function implementing the turnCheck thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_turnChecks */
+void turnChecks(void *argument)
+{
+  /* USER CODE BEGIN turnChecks */
+
+
+
+  /* Infinite loop */
+  for(;;)
+  {
+	  turnLeft();
+//	  osDelay(5000);
+	  turnRight();
+
+  }
+  /* USER CODE END turnChecks */
 }
 
 /**
