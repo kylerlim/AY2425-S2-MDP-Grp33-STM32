@@ -32,10 +32,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-uint16_t pwmVal_servo = 146;
+uint16_t pwmVal_servo;
 uint16_t SERVO_STRAIGHT = 146;
-uint16_t SERVO_LEFT = 110;
-uint16_t SERVO_RIGHT = 220;
+uint16_t SERVO_LEFT = 72;
+uint16_t SERVO_RIGHT = 186; // original at 220
+
+uint16_t ANGLE_TESTING_PHASE = 0;
+
 int e_brake = 0;
 int times_acceptable = 0;
 volatile int user_distance = 0;
@@ -88,8 +91,6 @@ static void MX_USART3_UART_Init(void);
 void driveForwardTask(void *argument);
 void USARTR3x(void *argument);
 void turnChecks(void *argument);
-void turnLeft();
-void turnRight();
 
 /* USER CODE BEGIN PFP */
 
@@ -481,126 +482,365 @@ void blinkLED3(int period){
 	  osDelay(period);
 	  HAL_GPIO_WritePin(GPIOE,LED3_Pin, GPIO_PIN_RESET);
 }
+void configSteer(int angle){
+  
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	htim1.Instance->CCR4 = angle;
 
+	osDelay(3000);
+}
+// TODO: undone function for wider left turn
+void turnLeft(int angle){
+	if (angle < 0  || angle > 90) return;
+	angle  = 90; // remove pls
+	  /* Inter-dependent Configurations for Car 18 left turns*/
+	  float MILLISECONDS_PER_DEGREE = 3200/90;
+	  uint16_t pwmVal = 1800;
 
-void turnLeft(){
-
-	  uint16_t pwmVal = 2000;  // Set an initial speed
-	  uint16_t servoVal = SERVO_LEFT;  // Assuming SERVO_LEFT is defined for a left turn
+	  /* Initialise Timer and Channels 
+    Timer 1 Channel 4 for Servo Motor FRONT Steer
+    Timer 8 Channel 1 for Motor A -- configured for RIGHT DC Wheel
+    Timer 8 Channel 2 for Motor B -- configured for LEFT DC Wheel
+    */
 	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
 	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
 	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
-	  htim1.Instance->CCR4 = servoVal;  // Turn the wheels left
+	  /* Turn the wheels left */
+	  htim1.Instance->CCR4 = SERVO_LEFT;
 
-	  // Reduce speed of the left wheels while keeping the right wheels moving
+    /* Configure RIGHT wheel to cause forward motion of car */
 	  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
 	  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
-	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
-	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	  /* Configure LEFT wheel to cause reverse motion of car */
+	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
 
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);  // Normal right motor motor
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal/2);      // Slow left motor
+    /* Narrow turn: Cause LEFT wheel to spin FASTER than RIGHT wheel
+      Wide turn: Cause LEFT wheel to spin SLOWER than RIGHT wheel */
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);    
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 2 * pwmVal);      
 
-	  // 4300 for perfect 90 left
-	  osDelay(2500);  // Adjust delay based on how sharp the turn should be
+    /*Dynamic function to cause different degree turn*/
+	  osDelay(MILLISECONDS_PER_DEGREE * angle);
 
-	  // Reset servo to straight and stop motors
+	  /* Reset servo to straight and stop motors */
 	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
 
-	  osDelay(3000);
-
+    // For Testing purposes, adjust accordingly during release
+	  osDelay(2000); 
 }
 
-void turnLeftReverse() {
-    uint16_t pwmVal = 2000;  // Set an initial speed
-    uint16_t servoVal = SERVO_LEFT;  // Turn the wheels left
-
-    // Start PWM for servo and motors
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
-
-    // Reverse the motor directions
-    HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);  // Left motor reverse
-    HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);  // Right motor reverse
-    HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
-
-    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);      // Normal right motor
-    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal / 2);  // Slow left motor (for turning)
-
-    //osDelay(200);
-    htim1.Instance->CCR4 = servoVal;  // Turn wheels left
-
-    osDelay(2300);  // Adjust delay based on how sharp the turn should be
-
-    // Reset servo to straight and stop motors
-    htim1.Instance->CCR4 = SERVO_STRAIGHT;
-    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
-    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
-    osDelay(3000);
-}
+void turnLeftNarrow(int angle){
+	if (angle < 0  || angle > 90) return;
+	angle  = 90; // remove pls
+	  /* Inter-dependent Configurations for Car 18 left turns*/
+	float MILLISECONDS_PER_DEGREE = 4125/90;
+	  uint16_t pwmVal = 1750;
 
 
-void turnRight(){
-
-	  uint16_t pwmVal = 2000;  // Set an initial speed
-	  uint16_t servoVal = SERVO_RIGHT;  // Assuming SERVO_LEFT is defined for a left turn
+	  /* Initialise Timer and Channels
+    Timer 1 Channel 4 for Servo Motor FRONT Steer
+    Timer 8 Channel 1 for Motor A -- configured for RIGHT DC Wheel
+    Timer 8 Channel 2 for Motor B -- configured for LEFT DC Wheel
+    */
 	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
 	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
 	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
-	  htim1.Instance->CCR4 = servoVal;  // Turn the wheels left
+	  /* Turn the wheels left */
+	  htim1.Instance->CCR4 = SERVO_LEFT;
 
-	  // Reduce speed of the left wheels while keeping the right wheels moving
+    /* Configure RIGHT wheel to cause forward motion of car */
 	  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
 	  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
-	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
-	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	  /* Configure LEFT wheel to cause reverse motion of car */
+	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
 
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal/2);  // Slow left motor
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);      // Normal right motor
+    /* Narrow turn: Cause LEFT wheel to spin FASTER than RIGHT wheel
+      Wide turn: Cause LEFT wheel to spin SLOWER than RIGHT wheel */
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 2 * pwmVal);
 
-	  // 3600 for perfect 90 right
-	  osDelay(1800);  // Adjust delay based on how sharp the turn should be
+    /*Dynamic function to cause different degree turn*/
+	  osDelay(MILLISECONDS_PER_DEGREE * angle);
 
-	  // Reset servo to straight and stop motors
+	  /* Reset servo to straight and stop motors */
 	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
-	  osDelay(3000);
+
+    // For Testing purposes, adjust accordingly during release
+	  osDelay(2000);
 }
 
-void turnRightReverse() {
-    uint16_t pwmVal = 2000;  // Set an initial speed
-    uint16_t servoVal = SERVO_RIGHT;  // Turn the wheels right
+void turnLeftReverse(int angle) {
+	if (angle < 0  || angle > 90) return;
+		angle  = 90; // remove pls
+		  /* Inter-dependent Configurations for Car 18 left turns*/
+		float MILLISECONDS_PER_DEGREE = 4125/90;
+		uint16_t pwmVal = 1750;
 
-    // Start PWM for servo and motors
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
-    htim1.Instance->CCR4 = servoVal;  // Turn wheels right
+		  /* Initialise Timer and Channels
+	    Timer 1 Channel 4 for Servo Motor FRONT Steer
+	    Timer 8 Channel 1 for Motor A -- configured for RIGHT DC Wheel
+	    Timer 8 Channel 2 for Motor B -- configured for LEFT DC Wheel
+	    */
+		  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+		  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+		  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
-    // Reverse the motor directions
-    HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);  // Left motor reverse
-    HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);  // Right motor reverse
-    HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
+		  /* Turn the wheels left */
+		  htim1.Instance->CCR4 = SERVO_LEFT;
 
-    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal / 2);  // Slow right motor (for turning)
-    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);      // Normal left motor (for sharper turn)
+	    /* Configure RIGHT wheel to cause reverse motion of car */
+		  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
+		  /* Configure LEFT wheel to cause forward motion of car */
+		  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
 
-    osDelay(1800);  // Adjust delay based on how sharp the turn should be
+	    /* Narrow turn: Cause LEFT wheel to spin FASTER than RIGHT wheel
+	      Wide turn: Cause LEFT wheel to spin SLOWER than RIGHT wheel */
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 2 * pwmVal);
 
-    // Reset servo to straight and stop motors
-    htim1.Instance->CCR4 = SERVO_STRAIGHT;
-    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
-    __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
-    osDelay(3000);
+	    /*Dynamic function to cause different degree turn*/
+		  osDelay(MILLISECONDS_PER_DEGREE * angle);
+//		  osDelay(test_90);
+
+		  /* Reset servo to straight and stop motors */
+		  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+
+	    // For Testing purposes, adjust accordingly during release
+		  osDelay(2000);
+}
+
+
+void turnRightNarrow(int angle){
+
+  if (angle < 0  || angle > 90) return;
+  /* Inter-dependent Configurations for Car 18 right turns */
+  float MILLISECONDS_PER_DEGREE = 2780/90;
+  uint16_t pwmVal = 1660;
+
+  /* Initialise Timer and Channels 
+  Timer 1 Channel 4 for Servo Motor FRONT Steer
+  Timer 8 Channel 1 for Motor A -- configured for RIGHT DC Wheel
+  Timer 8 Channel 2 for Motor B -- configured for LEFT DC Wheel
+  */
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+  /* Turn the wheels left */
+  htim1.Instance->CCR4 = SERVO_RIGHT;
+
+  /* Configure RIGHT wheel to cause reverse motion of car */
+  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
+  /* Configure LEFT wheel to cause forward motion of car */
+  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+
+  /* Narrow turn: Cause RIGHT wheel to spin FASTER than LEFT wheel
+    Wide turn: Cause RIGHT wheel to spin SLOWER than LEFT wheel */
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 1.95 * pwmVal);
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);      
+
+  /*Dynamic function to cause different degree turn*/
+  osDelay(MILLISECONDS_PER_DEGREE * angle);
+
+  /* Reset servo to straight and stop motors */
+  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+
+  // For Testing purposes, adjust accordingly during release
+  osDelay(2000); 
+}
+
+// TODO: undone function for wider right turn
+void turnRight(int angle){
+
+  if (angle < 0  || angle > 90) return;
+  angle  = 90; // remove pls
+  /* Inter-dependent Configurations for Car 18 right turns */
+  float MILLISECONDS_PER_DEGREE = 3200/90;
+  uint16_t pwmVal = 1800;
+
+  /* Initialise Timer and Channels
+  Timer 1 Channel 4 for Servo Motor FRONT Steer
+  Timer 8 Channel 1 for Motor A -- configured for RIGHT DC Wheel
+  Timer 8 Channel 2 for Motor B -- configured for LEFT DC Wheel
+  */
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+  /* Turn the wheels left */
+  htim1.Instance->CCR4 = 186;
+
+  /* Configure RIGHT wheel to cause reverse motion of car */
+  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
+  /* Configure LEFT wheel to cause forward motion of car */
+  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+
+  /* Narrow turn: Cause RIGHT wheel to spin FASTER than LEFT wheel
+    Wide turn: Cause RIGHT wheel to spin SLOWER than LEFT wheel */
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 1.95 * pwmVal);
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+
+  /*Dynamic function to cause different degree turn*/
+  osDelay(MILLISECONDS_PER_DEGREE * angle);
+
+  /* Reset servo to straight and stop motors */
+  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+
+  // For Testing purposes, adjust accordingly during release
+  osDelay(2000);
+}
+
+// movement is weird
+void turnRightReverse(int angle) {
+	if (angle < 0  || angle > 90) return;
+	  /* Inter-dependent Configurations for Car 18 right turns */
+	  float MILLISECONDS_PER_DEGREE = 2780/90;
+	  uint16_t pwmVal = 1660;
+
+	  /* Initialise Timer and Channels
+	  Timer 1 Channel 4 for Servo Motor FRONT Steer
+	  Timer 8 Channel 1 for Motor A -- configured for RIGHT DC Wheel
+	  Timer 8 Channel 2 for Motor B -- configured for LEFT DC Wheel
+	  */
+	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+	  /* Turn the wheels left */
+	  htim1.Instance->CCR4 = SERVO_RIGHT;
+
+	  /* Configure RIGHT wheel to cause forward motion of car */
+	  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	  /* Configure LEFT wheel to cause reverse motion of car */
+	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
+
+	  /* Narrow turn: Cause RIGHT wheel to spin FASTER than LEFT wheel
+	    Wide turn: Cause RIGHT wheel to spin SLOWER than LEFT wheel */
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 1.95 * pwmVal);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+
+	  /*Dynamic function to cause different degree turn*/
+	  osDelay(MILLISECONDS_PER_DEGREE * angle);
+
+	  /* Reset servo to straight and stop motors */
+	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+
+	  // For Testing purposes, adjust accordingly during release
+	  osDelay(2000);
+}
+
+void driveForward(int distance_in_cm) {
+	
+	  /* Inter-dependent Configurations for Car 18 */
+	  uint16_t pwmVal = 1700;
+    float MILLISECONDS_PER_CENTIMETRE = 39;
+	  /* Initialise Timer and Channels
+	  Timer 1 Channel 4 for Servo Motor FRONT Steer
+	  Timer 8 Channel 1 for Motor A -- configured for RIGHT DC Wheel
+	  Timer 8 Channel 2 for Motor B -- configured for LEFT DC Wheel
+	  */
+	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+	  /* Turn the wheels left */
+	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+
+	  /* Configure RIGHT wheel to cause forward motion of car */
+	  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	  /* Configure LEFT wheel to cause forward motion of car */
+	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+
+
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+
+	  /*Dynamic function to cause different degree turn*/
+	  osDelay(MILLISECONDS_PER_CENTIMETRE * distance_in_cm);
+
+	  /* Reset servo to straight and stop motors */
+	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+
+	  // For Testing purposes, adjust accordingly during release
+	  osDelay(2000);
+}
+
+void driveBackward(int distance_in_cm) {
+
+	  /* Inter-dependent Configurations for Car 18 */
+	  uint16_t pwmVal = 1700;
+    float MILLISECONDS_PER_CENTIMETRE = 39;
+	  /* Initialise Timer and Channels
+	  Timer 1 Channel 4 for Servo Motor FRONT Steer
+	  Timer 8 Channel 1 for Motor A -- configured for RIGHT DC Wheel
+	  Timer 8 Channel 2 for Motor B -- configured for LEFT DC Wheel
+	  */
+	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+	  /* Turn the wheels left */
+	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+
+	  /* Configure RIGHT wheel to cause forward motion of car */
+	  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
+	  /* Configure LEFT wheel to cause forward motion of car */
+	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
+
+
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+
+	  /*Dynamic function to cause different degree turn*/
+	  osDelay(MILLISECONDS_PER_CENTIMETRE * distance_in_cm);
+
+	  /* Reset servo to straight and stop motors */
+	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+
+	  // For Testing purposes, adjust accordingly during release
+	  osDelay(2000);
+}
+
+
+
+
+void threePointTurn(){
+	 turnLeftReverse(90);
+	 turnRightNarrow(90);
+
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -619,8 +859,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   * @retval None
   */
 /* USER CODE END Header_driveForwardTask */
-// TODO: rewrite as function.
-// write function for move forward accepting distance as argument
 void driveForwardTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
@@ -690,10 +928,11 @@ void USARTR3x(void *argument)
 	/* Infinite loop */
 	for(;;)
 	{
-	  sprintf(string, "%s\0", aRxBuffer);
-	  OLED_ShowString(10, 10, string);
+//	  sprintf(string, "%s\0", aRxBuffer);
+//	  OLED_ShowString(10, 10, string);
+	  OLED_ShowNumber(10, 10, ANGLE_TESTING_PHASE, 3, 12);
 	  OLED_Refresh_Gram();
-	osDelay(1000);
+	  osDelay(1000);
 	}
   /* USER CODE END USARTR3x */
 }
@@ -708,17 +947,43 @@ void USARTR3x(void *argument)
 void turnChecks(void *argument)
 {
   /* USER CODE BEGIN turnChecks */
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	htim1.Instance->CCR4 = SERVO_STRAIGHT;
 
-
-
+//	ANGLE_TESTING_PHASE = 65;
   /* Infinite loop */
   for(;;)
   {
-	  turnLeft();
+
+
+	  driveForward(20);
+	  driveBackward(20);
+	  turnRightNarrow(90);
+	  turnRightReverse(90);
+	  turnLeftNarrow(90);
+	  turnLeftReverse(90);
+
+//	  turnRightNarrow(ANGLE_TESTING_PHASE);
+//	  turnRightNarrow(ANGLE_TESTING_PHASE);
+//	  turnRightNarrow(ANGLE_TESTING_PHASE);
+//	turnLeftNarrow(ANGLE_TESTING_PHASE);
+//	turnLeftNarrow(ANGLE_TESTING_PHASE);
+//	turnLeftNarrow(ANGLE_TESTING_PHASE);
+//	turnLeftNarrow(ANGLE_TESTING_PHASE);
+
+
+
+//    configSteer(ANGLE_TESTING_PHASE);
 //	  osDelay(5000);
 	  //turnRight();
 	  //turnRightReverse();
-	  turnLeftReverse();
+//	  turnLeftReverse();
+//    if (ANGLE_TESTING_PHASE > 140 && ANGLE_TESTING_PHASE < 150 )
+//	  ANGLE_TESTING_PHASE +=1;
+//
+//    else
+    	ANGLE_TESTING_PHASE +=5;
+	  osDelay(1000);
 
 
   }
