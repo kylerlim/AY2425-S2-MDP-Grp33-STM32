@@ -28,7 +28,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define CMD_MAX_LENGTH  5
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -37,13 +37,19 @@ uint16_t pwmVal_servo;
 uint16_t SERVO_STRAIGHT = 146;
 uint16_t SERVO_LEFT = 72;
 uint16_t SERVO_RIGHT = 186; // original at 220
+uint16_t DC_RIGHT = 2100;
+uint16_t DC_LEFT = 1670;
+
 
 uint16_t ANGLE_TESTING_PHASE = 0;
 
 int e_brake = 0;
 int times_acceptable = 0;
 volatile int user_distance = 0;
+int readyToExecute = 0;
 
+uint16_t echo = 0;       // To hold the echo pulse width in microseconds
+float tc1, tc2;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,21 +59,16 @@ volatile int user_distance = 0;
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim8;
 
+UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
 
-/* Definitions for DriveForward */
-osThreadId_t DriveForwardHandle;
-const osThreadAttr_t DriveForward_attributes = {
-  .name = "DriveForward",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
-/* Definitions for USART3Receive */
-osThreadId_t USART3ReceiveHandle;
-const osThreadAttr_t USART3Receive_attributes = {
-  .name = "USART3Receive",
+/* Definitions for USART3Rx */
+osThreadId_t USART3RxHandle;
+const osThreadAttr_t USART3Rx_attributes = {
+  .name = "USART3Rx",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
@@ -89,8 +90,9 @@ static void MX_GPIO_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_USART3_UART_Init(void);
-void driveForwardTask(void *argument);
-void USARTR3x(void *argument);
+static void MX_USART1_UART_Init(void);
+static void MX_TIM6_Init(void);
+void USART3Receive(void *argument);
 void turnChecks(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -99,7 +101,17 @@ void turnChecks(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint8_t aRxBuffer [20];
+
+volatile uint8_t aRxBuffer [CMD_MAX_LENGTH];
+volatile uint8_t bufferIndex = 0;
+
+int flagDone = 0;
+char key;
+char direction;
+int magnitude = 0;
+int flagRead = 0;
+int flagWrite = 0;
+
 /* USER CODE END 0 */
 
 /**
@@ -119,11 +131,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-//  uint8_t hello_mdp [30] = "Goodbye MDP Grp33";
-//  uint8_t str1 [30] = "STM32 Team";
-
-//
-//  uint16_t pwmVal = 200;
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -138,10 +145,15 @@ int main(void)
   MX_TIM8_Init();
   MX_TIM1_Init();
   MX_USART3_UART_Init();
+  MX_USART1_UART_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
 
-  HAL_UART_Receive_IT(&huart3, (uint8_t *) aRxBuffer, 30);
+//  HAL_UART_Receive_IT(&huart3, (uint8_t *) aRxBuffer, 30);
+//  HAL_UART_Receive_IT(&huart1, (uint8_t *) aRxBuffer, CMD_MAX_LENGTH);
+  HAL_UART_Receive_IT(&huart1, &aRxBuffer[bufferIndex], CMD_MAX_LENGTH);
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -164,11 +176,8 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of DriveForward */
-  DriveForwardHandle = osThreadNew(driveForwardTask, NULL, &DriveForward_attributes);
-
-  /* creation of USART3Receive */
-  USART3ReceiveHandle = osThreadNew(USARTR3x, NULL, &USART3Receive_attributes);
+  /* creation of USART3Rx */
+  USART3RxHandle = osThreadNew(USART3Receive, NULL, &USART3Rx_attributes);
 
   /* creation of turnCheck */
   turnCheckHandle = osThreadNew(turnChecks, NULL, &turnCheck_attributes);
@@ -253,6 +262,7 @@ static void MX_TIM1_Init(void)
   /* USER CODE END TIM1_Init 0 */
 
   TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
   TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
 
@@ -266,6 +276,10 @@ static void MX_TIM1_Init(void)
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_IC_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
   if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
@@ -273,6 +287,14 @@ static void MX_TIM1_Init(void)
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_BOTHEDGE;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -301,6 +323,44 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 2 */
   HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 16-1;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 65535;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
 
 }
 
@@ -383,6 +443,39 @@ static void MX_TIM8_Init(void)
 }
 
 /**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -431,6 +524,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, OLED_SCL_Pin|OLED_SDA_Pin|OLED_RS_Pin|OLED_DC_Pin
@@ -441,6 +535,9 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : OLED_SCL_Pin OLED_SDA_Pin OLED_RS_Pin OLED_DC_Pin
                            LED3_Pin */
@@ -472,6 +569,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(BUZZER_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : Trigger_Pin */
+  GPIO_InitStruct.Pin = Trigger_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Trigger_GPIO_Port, &GPIO_InitStruct);
+
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
@@ -483,6 +587,14 @@ void blinkLED3(int period){
 	  osDelay(period);
 	  HAL_GPIO_WritePin(GPIOE,LED3_Pin, GPIO_PIN_RESET);
 }
+
+void ringBuzzer(int period){
+  HAL_GPIO_WritePin(GPIOB,BUZZER_Pin, GPIO_PIN_SET);
+  osDelay(period);
+  HAL_GPIO_WritePin(GPIOB,BUZZER_Pin, GPIO_PIN_RESET);
+  osDelay(period);
+}
+
 void configSteer(int angle){
   
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
@@ -495,8 +607,8 @@ void turnLeft(int angle){
 	if (angle < 0  || angle > 90) return;
 	angle  = 90; // remove pls
 	  /* Inter-dependent Configurations for Car 18 left turns*/
-	  float MILLISECONDS_PER_DEGREE = 3200/90;
-	  uint16_t pwmVal = 1800;
+	  float MILLISECONDS_PER_DEGREE = 2780/90;
+	  // uint16_t pwmVal = 1800;
 
 	  /* Initialise Timer and Channels 
     Timer 1 Channel 4 for Servo Motor FRONT Steer
@@ -518,9 +630,9 @@ void turnLeft(int angle){
 	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
 
     /* Narrow turn: Cause LEFT wheel to spin FASTER than RIGHT wheel
-      Wide turn: Cause LEFT wheel to spin SLOWER than RIGHT wheel */
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);    
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 2 * pwmVal);      
+      Wide turn: Cause LEFT wheel to spin SLOWER than narrow turn */
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, DC_RIGHT);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 2 * DC_LEFT);
 
     /*Dynamic function to cause different degree turn*/
 	  osDelay(MILLISECONDS_PER_DEGREE * angle);
@@ -535,10 +647,10 @@ void turnLeft(int angle){
 }
 
 void turnLeftNarrow(int angle){
-	if (angle < 0  || angle > 90) return;
+	if (angle < 0  || angle > 180) return;
 	angle  = 90; // remove pls
 	  /* Inter-dependent Configurations for Car 18 left turns*/
-	float MILLISECONDS_PER_DEGREE = 4125/90;
+	float MILLISECONDS_PER_DEGREE = 2680/90;
 	  uint16_t pwmVal = 1750;
 
 
@@ -562,9 +674,9 @@ void turnLeftNarrow(int angle){
 	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
 
     /* Narrow turn: Cause LEFT wheel to spin FASTER than RIGHT wheel
-      Wide turn: Cause LEFT wheel to spin SLOWER than RIGHT wheel */
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 2 * pwmVal);
+      Wide turn: Cause LEFT wheel to spin SLOWER than narrow turn */
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, DC_RIGHT);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 2 * DC_LEFT);
 
     /*Dynamic function to cause different degree turn*/
 	  osDelay(MILLISECONDS_PER_DEGREE * angle);
@@ -582,7 +694,7 @@ void turnLeftReverse(int angle) {
 	if (angle < 0  || angle > 90) return;
 		angle  = 90; // remove pls
 		  /* Inter-dependent Configurations for Car 18 left turns*/
-		float MILLISECONDS_PER_DEGREE = 4125/90;
+		float MILLISECONDS_PER_DEGREE = 2780/90;
 		uint16_t pwmVal = 1750;
 
 
@@ -606,9 +718,9 @@ void turnLeftReverse(int angle) {
 		  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
 
 	    /* Narrow turn: Cause LEFT wheel to spin FASTER than RIGHT wheel
-	      Wide turn: Cause LEFT wheel to spin SLOWER than RIGHT wheel */
-		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 2 * pwmVal);
+	      Wide turn: Cause LEFT wheel to spin SLOWER than narrow turn */
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, DC_RIGHT);
+		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 2 * DC_LEFT);
 
 	    /*Dynamic function to cause different degree turn*/
 		  osDelay(MILLISECONDS_PER_DEGREE * angle);
@@ -623,12 +735,11 @@ void turnLeftReverse(int angle) {
 		  osDelay(2000);
 }
 
-
 void turnRightNarrow(int angle){
 
-  if (angle < 0  || angle > 90) return;
+  if (angle < 0  || angle > 180) return;
   /* Inter-dependent Configurations for Car 18 right turns */
-  float MILLISECONDS_PER_DEGREE = 2780/90;
+  float MILLISECONDS_PER_DEGREE = 2975/90;
   uint16_t pwmVal = 1660;
 
   /* Initialise Timer and Channels 
@@ -651,9 +762,9 @@ void turnRightNarrow(int angle){
   HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
 
   /* Narrow turn: Cause RIGHT wheel to spin FASTER than LEFT wheel
-    Wide turn: Cause RIGHT wheel to spin SLOWER than LEFT wheel */
-  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 1.95 * pwmVal);
-  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);      
+    Wide turn: Cause RIGHT wheel to spin SLOWER than narrow turn */
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 2 * DC_RIGHT);
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, DC_LEFT);
 
   /*Dynamic function to cause different degree turn*/
   osDelay(MILLISECONDS_PER_DEGREE * angle);
@@ -673,7 +784,7 @@ void turnRight(int angle){
   if (angle < 0  || angle > 90) return;
   angle  = 90; // remove pls
   /* Inter-dependent Configurations for Car 18 right turns */
-  float MILLISECONDS_PER_DEGREE = 3200/90;
+  float MILLISECONDS_PER_DEGREE = 2780/90;
   uint16_t pwmVal = 1800;
 
   /* Initialise Timer and Channels
@@ -696,9 +807,9 @@ void turnRight(int angle){
   HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
 
   /* Narrow turn: Cause RIGHT wheel to spin FASTER than LEFT wheel
-    Wide turn: Cause RIGHT wheel to spin SLOWER than LEFT wheel */
-  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 1.95 * pwmVal);
-  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+    Wide turn: Cause RIGHT wheel to spin SLOWER than narrow turn */
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 2 * DC_RIGHT);
+  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, DC_LEFT);
 
   /*Dynamic function to cause different degree turn*/
   osDelay(MILLISECONDS_PER_DEGREE * angle);
@@ -739,9 +850,9 @@ void turnRightReverse(int angle) {
 	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
 
 	  /* Narrow turn: Cause RIGHT wheel to spin FASTER than LEFT wheel
-	    Wide turn: Cause RIGHT wheel to spin SLOWER than LEFT wheel */
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 1.95 * pwmVal);
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+	    Wide turn: Cause RIGHT wheel to spin SLOWER than narrow turn */
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 2 * DC_RIGHT);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, DC_LEFT);
 
 	  /*Dynamic function to cause different degree turn*/
 	  osDelay(MILLISECONDS_PER_DEGREE * angle);
@@ -780,8 +891,8 @@ void driveForward(int distance_in_cm) {
 	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
 
 
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, DC_RIGHT);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, DC_LEFT);
 
 	  /*Dynamic function to cause different degree turn*/
 	  osDelay(MILLISECONDS_PER_CENTIMETRE * distance_in_cm);
@@ -835,8 +946,113 @@ void driveBackward(int distance_in_cm) {
 	  osDelay(2000);
 }
 
+void stopCar() {
+
+	  /* Inter-dependent Configurations for Car 18 */
+	  /* Initialise Timer and Channels
+	  Timer 1 Channel 4 for Servo Motor FRONT Steer
+	  Timer 8 Channel 1 for Motor A -- configured for RIGHT DC Wheel
+	  Timer 8 Channel 2 for Motor B -- configured for LEFT DC Wheel
+	  */
+	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+	  /* Turn the wheels left */
+	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+
+	  /* Configure RIGHT wheel to cause forward motion of car */
+	  HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
+	  /* Configure LEFT wheel to cause forward motion of car */
+	  HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
 
 
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+
+	  /*Dynamic function to cause different degree turn*/
+
+
+	  /* Reset servo to straight and stop motors */
+	  htim1.Instance->CCR4 = SERVO_STRAIGHT;
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+
+	  // For Testing purposes, adjust accordingly during release
+	  osDelay(2000);
+}
+
+uint16_t ultrasonic(){
+//	uint16_t echo = 0;       // To hold the echo pulse width in microseconds
+	char buf[20];            // Buffer for sprintf (adjust size as needed)
+	float distance = 0.0f;   // Calculated distance in centimeters
+
+	HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
+	HAL_Delay(50);
+
+	//Output 1us of Trig
+	HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_SET);
+	delay_us(10);
+	HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
+	HAL_Delay(50);
+
+	//wait for rising edge
+	HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
+	HAL_TIM_IC_CaptureCallback(&htim1);
+
+	//measure
+	sprintf(buf, "Echo = %5d us ", echo);
+	OLED_ShowString(10,40, &buf[0]);
+	//OLED_Refresh_Gram();
+
+	distance = echo * (343 /2);
+
+	sprintf(buf, "Dist = %5.1f cm ", distance);
+	OLED_ShowString(10,50, &buf[0]);
+	OLED_Refresh_Gram();
+
+	uint16_t distance_return = (uint16_t)distance * 1000;
+
+	return distance_return;
+}
+
+void turnToNextFace(){
+
+	driveForward(10);
+	driveBackward(20);
+	turnLeftNarrow(90);
+	driveForward(30);
+	turnRightNarrow(100);
+	driveForward(15);
+	turnRightNarrow(100);
+
+}
+
+void delay_us(uint16_t us){
+	HAL_TIM_Base_Start(&htim6);
+	__HAL_TIM_SET_COUNTER(&htim6, 0);
+
+	while(__HAL_TIM_GET_COUNTER(&htim6) < us);
+}
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
+
+ if(htim==&htim1){
+  if(HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_13) == GPIO_PIN_SET){ //If pin on high, means positive edge
+   tc1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3); //Retrieve value and store in tc1
+  } else if (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_13) == GPIO_PIN_RESET){ //If pin on low means negative edge
+   tc2 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3); //Retrieve val and store in tc2
+   if (tc2 > tc1){
+    echo = tc2-tc1;  //Calculate the difference = width of pulse
+   } else {
+    echo = (65535-tc1)+tc2;
+   }
+  }
+
+ }
+}
 
 void threePointTurn(){
 	 turnLeftReverse(90);
@@ -844,97 +1060,262 @@ void threePointTurn(){
 
 }
 
+void try(){
+	 turnRightNarrow(90);
+	 driveForward(20);
+	 turnLeftNarrow(90);
+	 turnLeftNarrow(90);
+
+	 turnRightNarrow(90);
+	 driveForward(20);
+	 turnLeftNarrow(90);
+	 turnLeftNarrow(90);
+
+	 turnRightNarrow(90);
+	 driveForward(20);
+	 turnLeftNarrow(90);
+	 turnLeftNarrow(90);
+
+	 turnRightNarrow(90);
+	 driveForward(20);
+	 turnLeftNarrow(90);
+	 turnLeftNarrow(90);
+
+
+}
+
+//void start_uart_receive(void) {
+//    // Start receiving CMD_MAX_LENGTH bytes.
+//    HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, CMD_MAX_LENGTH);
+//}
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	UNUSED(huart);
+	ringBuzzer(3000); // for debug
+	HAL_UART_Transmit(&huart1, (uint8_t *) aRxBuffer, CMD_MAX_LENGTH, 0xFFFF);
 
-	HAL_UART_Transmit(&huart3, (uint8_t *) aRxBuffer, 30, 0xFFFF);
+//	  HAL_UART_Transmit(&huart1, ch, 1, 0xFFFF);
+//  if (huart->Instance == USART1)
+//  {
+//
+//    if (bufferIndex == 4)
+//    {
+//    	blinkLED3(30);
+//    	ringBuzzer(3000);
+//      OLED_Clear();
+//      OLED_Refresh_Gram();
+//      memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+//      bufferIndex = 0;
+//      readyToExecute = 1;
+//    }
+//
+//    else
+//    {
+//		uint8_t unready_str [8] = "Unready";
+//		readyToExecute = 0;
+      OLED_ShowString(10, 20, aRxBuffer); //sanity check
+//      OLED_ShowString(10, 30, unready_str); //sanity check
+      OLED_Refresh_Gram();
+//      bufferIndex++;
+//      if (bufferIndex > CMD_MAX_LENGTH) bufferIndex = 0;  // Prevent overflow, wouldn't occur? but just in case
+//    }
+//
+//  }
+	readyToExecute = 1;
+
+	HAL_UART_Receive_IT (&huart1, aRxBuffer, CMD_MAX_LENGTH);
+  // might need to reposition to the nested-if block 
+  // i.e. "if (bufferIndex % 5 == 0)"
 
 }
+
+
+//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+//	if (huart->Instance == USART3) {  // Check if it's UART3
+//
+//	        if (aRxBuffer[bufferIndex] == '\n') {  // Check for newline character
+//	            aRxBuffer[bufferIndex] = '\0';  // Null-terminate the string
+//
+//	            // Process the received message
+//	            OLED_ShowString(10, 10, (char *)aRxBuffer);
+//	            OLED_Refresh_Gram();
+//
+//	            osDelay(1000);
+//
+//	            // Clear the buffer and reset index
+//	            memset((uint8_t *)aRxBuffer, 0, CMD_MAX_LENGTH);
+//	            bufferIndex = 0;
+//	        } else {
+//	            // Increment buffer index, but prevent overflow
+//	            bufferIndex = (bufferIndex + 1) % CMD_MAX_LENGTH;
+//	        }
+//
+//	        // Restart UART reception for the next byte
+//	        HAL_UART_Receive_IT(&huart3, &aRxBuffer[bufferIndex], 1);
+//	    }
+//}
+
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_driveForwardTask */
+/* USER CODE BEGIN Header_USART3Receive */
 /**
-  * @brief  Function implementing the DriveForward thread.
+  * @brief  Function implementing the USART3Rx thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_driveForwardTask */
-void driveForwardTask(void *argument)
+/* USER CODE END Header_USART3Receive */
+void USART3Receive(void *argument)
 {
-  /* USER CODE BEGIN 5 */
-	osDelay(1000000);
-	uint16_t pwmVal = 0;
-	uint16_t servoVal = SERVO_STRAIGHT;
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+/* USER CODE BEGIN USARTR3x */
+	char ch = 'A';
+		char old = ')';
+//		uint8_t debugMsg[20] = "hello\0";
 
-	htim1.Instance->CCR4 = 100; // left callibration
-	osDelay(1000);
-	htim1.Instance->CCR4 = 180; // right callibration
-	osDelay(1000);
-	htim1.Instance->CCR4 = servoVal;
-	while(pwmVal < 1200)
+
+		int signMagnitude = 1;
+	  /* Infinite loop */
+//		  aRxBuffer[0] = '-';
+//		  aRxBuffer[1] = 'W';
+//		  aRxBuffer[2] = 'A';
+//		  aRxBuffer[3] = 'I';
+//		  aRxBuffer[4] = 'T';
+	  for(;;)
 	  {
-		  HAL_GPIO_WritePin(GPIOA,AIN2_Pin, GPIO_PIN_SET);
-		  HAL_GPIO_WritePin(GPIOA,AIN1_Pin, GPIO_PIN_RESET);
-		  HAL_GPIO_WritePin(GPIOA,BIN2_Pin, GPIO_PIN_SET);
-		  HAL_GPIO_WritePin(GPIOA,BIN1_Pin, GPIO_PIN_RESET);
-		  pwmVal += 100;
-		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-		  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
-		  osDelay(500);
+		  magnitude = 0;
+		  key = '\0';
+		  direction = '\0';
+
+		  key = aRxBuffer[0];
+		  direction = aRxBuffer[1];
+		  magnitude = ((int)(((int)aRxBuffer[2])-48)*100) + ((int)(((int)aRxBuffer[3])-48)*10) + ((int)(((int)aRxBuffer[4])-48));
+		  signMagnitude = 1;
+
+
+
+//		  if(direction == 'B' || direction == 'b'){
+//			  magnitude *= (int)-1;
+//			  signMagnitude = -1;
+//		  }
+
+		  //if(aRxBuffer[0] != old){
+//			if (aRxBuffer[0]!='D' & aRxBuffer[4]!='!'){
+		  if (readyToExecute == 1){
+//				old_Buff1[0] = old_Buff[0];
+//				old_Buff1[1] = old_Buff[1];
+//				old_Buff1[2] = old_Buff[2];
+//				old_Buff1[3] = old_Buff[3];
+//				old_Buff1[4] = old_Buff[4];
+//			old_Buff[0] = aRxBuffer[0];
+//			old_Buff[1] = aRxBuffer[1];
+//			old_Buff[2] = aRxBuffer[2];
+//			old_Buff[3] = aRxBuffer[3];
+//			old_Buff[4] = aRxBuffer[4];
+
+			//}
+
+			 //osDelay(500); //og 2000 delay
+
+			  switch (key){
+				  case 'D':
+					  break;
+				  case 'S':
+					  times_acceptable=0;
+					  driveForward((int)magnitude);
+//					  while(finishCheck());
+					  flagDone=1;
+//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+//					  aRxBuffer[0] = '-';
+//					  aRxBuffer[1] = '-';
+//					  aRxBuffer[2] = '-';
+//					  aRxBuffer[3] = '-';
+//					  aRxBuffer[4] = '-';
+					  osDelay(1000); //og 100
+					  ringBuzzer(3000); // for debug
+					  break;
+
+				  case 'B':
+					  times_acceptable=0;
+					  driveBackward((int)magnitude);
+	//					  while(finishCheck());
+					  flagDone=1;
+//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+//					  aRxBuffer[0] = '-';
+//					  aRxBuffer[1] = '-';
+//					  aRxBuffer[2] = '-';
+//					  aRxBuffer[3] = '-';
+//					  aRxBuffer[4] = '-';
+					  osDelay(1000); //og 100
+					  ringBuzzer(3000); // for debug
+					  break;
+
+				  case 'R':
+					  times_acceptable=0;
+					  turnRightNarrow((int)magnitude);
+//					  while(finishCheck());
+					  flagDone=1;
+//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+//					  aRxBuffer[0] = '-';
+//					  aRxBuffer[1] = '-';
+//					  aRxBuffer[2] = '-';
+//					  aRxBuffer[3] = '-';
+//					  aRxBuffer[4] = '-';
+					  osDelay(1000); //og 100
+					  ringBuzzer(3000); // for debug
+					  break;
+
+				  case 'L':
+					  times_acceptable=0;
+					  turnLeftNarrow((int)magnitude);
+//					  while(finishCheck());
+					  flagDone=1;
+//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+//					  aRxBuffer[0] = '-';
+//					  aRxBuffer[1] = '-';
+//					  aRxBuffer[2] = '-';
+//					  aRxBuffer[3] = '-';
+//					  aRxBuffer[4] = '-';
+					  osDelay(1000); //og 100
+					  ringBuzzer(3000); // for debug
+					  break;
+
+				  case 'P':
+					  turnToNextFace();
+					  flagDone=1;
+					  break;
+
+				  case '-':
+					  times_acceptable=0;
+					  stopCar();
+//					  while(finishCheck());
+					  flagDone=1;
+//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+
+//					  aRxBuffer[0] = '-';
+//					  aRxBuffer[1] = '-';
+//					  aRxBuffer[2] = '-';
+//					  aRxBuffer[3] = '-';
+//					  aRxBuffer[4] = '-';
+					  osDelay(1000); //og 100
+					  break;
+				  default:
+					  break;
+			  }
+			  old = aRxBuffer[0];
+		  }
+
+
+
+		  // send ack back to rpi and ready for next instruction
+			if(flagDone==1){
+				osDelay(50); //og 500
+//				HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1,0xFFFF);
+				flagDone = 0;
+			}
+			//flagRead = 0;
+			osDelay(1);
 	  }
-	osDelay(3000);
-	pwmVal = -600;
 
-	while(pwmVal != 0){
-
-
-	  pwmVal += 200;
-
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, pwmVal);
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal);
-	}
-	vTaskDelete(NULL);
-  /* USER CODE END 5 */
-}
-
-/* USER CODE BEGIN Header_USARTR3x */
-/**
-* @brief Function implementing the USART3Receive thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_USARTR3x */
-void USARTR3x(void *argument)
-{
-  /* USER CODE BEGIN USARTR3x */
-	uint8_t string [20] = "READY";
-
-	uint8_t * ch = &string[0];
-
-	for (int i = 0; i < 5; i++){
-	  HAL_UART_Transmit(&huart3, ch, 1, 0xFFFF);
-	  ch ++;
-	}
-	OLED_ShowString(10, 10, string);
-	OLED_Refresh_Gram();
-	osDelay(2000);
-	OLED_Clear();
-
-	osDelay(1000);
-
-	/* Infinite loop */
-	for(;;)
-	{
-//	  sprintf(string, "%s\0", aRxBuffer);
-//	  OLED_ShowString(10, 10, string);
-	  OLED_ShowNumber(10, 10, ANGLE_TESTING_PHASE, 3, 12);
-	  OLED_Refresh_Gram();
-	  osDelay(1000);
-	}
   /* USER CODE END USARTR3x */
 }
 
@@ -948,44 +1329,11 @@ void USARTR3x(void *argument)
 void turnChecks(void *argument)
 {
   /* USER CODE BEGIN turnChecks */
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-	htim1.Instance->CCR4 = SERVO_STRAIGHT;
 
-//	ANGLE_TESTING_PHASE = 65;
+
   /* Infinite loop */
   for(;;)
   {
-
-
-	  driveForward(20);
-	  driveBackward(20);
-	  turnRightNarrow(90);
-	  turnRightReverse(90);
-	  turnLeftNarrow(90);
-	  turnLeftReverse(90);
-
-//	  turnRightNarrow(ANGLE_TESTING_PHASE);
-//	  turnRightNarrow(ANGLE_TESTING_PHASE);
-//	  turnRightNarrow(ANGLE_TESTING_PHASE);
-//	turnLeftNarrow(ANGLE_TESTING_PHASE);
-//	turnLeftNarrow(ANGLE_TESTING_PHASE);
-//	turnLeftNarrow(ANGLE_TESTING_PHASE);
-//	turnLeftNarrow(ANGLE_TESTING_PHASE);
-
-
-
-//    configSteer(ANGLE_TESTING_PHASE);
-//	  osDelay(5000);
-	  //turnRight();
-	  //turnRightReverse();
-//	  turnLeftReverse();
-//    if (ANGLE_TESTING_PHASE > 140 && ANGLE_TESTING_PHASE < 150 )
-//	  ANGLE_TESTING_PHASE +=1;
-//
-//    else
-    	ANGLE_TESTING_PHASE +=5;
-	  osDelay(1000);
-
 
   }
   /* USER CODE END turnChecks */
