@@ -1,4 +1,3 @@
-///rebase
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
@@ -48,8 +47,11 @@ int times_acceptable = 0;
 volatile int user_distance = 0;
 int readyToExecute = 0;
 
+
+// Ultrasonic sensor declarations
 uint16_t echo = 0;       // To hold the echo pulse width in microseconds
-float tc1, tc2;
+uint16_t tc1, tc2;
+uint8_t Is_First_Captured = 0;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -59,6 +61,7 @@ float tc1, tc2;
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim8;
 
@@ -92,6 +95,7 @@ static void MX_TIM1_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_TIM4_Init(void);
 void USART3Receive(void *argument);
 void turnChecks(void *argument);
 
@@ -147,6 +151,7 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USART1_UART_Init();
   MX_TIM6_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
 
@@ -262,7 +267,6 @@ static void MX_TIM1_Init(void)
   /* USER CODE END TIM1_Init 0 */
 
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_IC_InitTypeDef sConfigIC = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
   TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
 
@@ -276,10 +280,6 @@ static void MX_TIM1_Init(void)
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-  if (HAL_TIM_IC_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
   if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
@@ -287,14 +287,6 @@ static void MX_TIM1_Init(void)
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_BOTHEDGE;
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 0;
-  if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -323,6 +315,64 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 2 */
   HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 16;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 65535;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_BOTHEDGE;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim4, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -984,39 +1034,44 @@ void stopCar() {
 	  osDelay(2000);
 }
 
-uint16_t ultrasonic(){
 //	uint16_t echo = 0;       // To hold the echo pulse width in microseconds
-	char buf[20];            // Buffer for sprintf (adjust size as needed)
-	float distance = 0.0f;   // Calculated distance in centimeters
+    uint16_t distance_return = 0;
 
-	HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
 	HAL_Delay(50);
+    HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
 
 	//Output 1us of Trig
 	HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_SET);
-	delay_us(10);
 	HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
 	HAL_Delay(50);
+    delay_us(10); // Send 10us trigger pulse
 
-	//wait for rising edge
 	HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
 	HAL_TIM_IC_CaptureCallback(&htim1);
+    osDelay(50);
 
 	//measure
-	sprintf(buf, "Echo = %5d us ", echo);
 	OLED_ShowString(10,40, &buf[0]);
 	//OLED_Refresh_Gram();
+    // Display measured values
+    sprintf(buf, "tc1 = %5d us ", tc1);
 
-	distance = echo * (343 /2);
 
 	sprintf(buf, "Dist = %5.1f cm ", distance);
 	OLED_ShowString(10,50, &buf[0]);
 	OLED_Refresh_Gram();
+    sprintf(buf, "Echo = %5d us ", echo);
+    OLED_ShowString(10, 30, buf);
 
-	uint16_t distance_return = (uint16_t)distance * 1000;
+    distance_return = echo * 0.0343 / 2; // Convert to cm
 
-	return distance_return;
+    sprintf(buf, "Dist = %4d cm ", distance_return);
+    OLED_ShowString(10, 40, buf);
+    OLED_Refresh_Gram();
+
+    return distance_return;
 }
+
 
 void turnToNextFace(){
 
@@ -1052,6 +1107,14 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
   }
 
  }
+            }
+
+
+            Is_First_Captured = 0; // Reset flag
+
+            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_RISING);
+        }
+    }
 }
 
 void threePointTurn(){
@@ -1193,7 +1256,7 @@ void USART3Receive(void *argument)
 				  case 'B':
 					  times_acceptable=0;
 					  driveBackward((int)magnitude);
-	//					  while(finishCheck());
+//					  while(finishCheck());
 					  flagDone=1;
 //					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
 //					  aRxBuffer[0] = '-';
@@ -1264,7 +1327,7 @@ void USART3Receive(void *argument)
 
 		  // send ack back to rpi and ready for next instruction
 			if(flagDone==1){
-        acknowledgeCompletion();
+				acknowledgeCompletion();
 				osDelay(50); //og 500
 				flagDone = 0;
 			}

@@ -77,16 +77,16 @@ void Error_Handler(void);
 #define OLED_DC_GPIO_Port GPIOE
 #define LED3_Pin GPIO_PIN_10
 #define LED3_GPIO_Port GPIOE
-#define Echo_Pin GPIO_PIN_13
-#define Echo_GPIO_Port GPIOE
 #define BUZZER_Pin GPIO_PIN_10
 #define BUZZER_GPIO_Port GPIOB
+#define Echo_Pin GPIO_PIN_12
+#define Echo_GPIO_Port GPIOD
+#define Trigger_Pin GPIO_PIN_13
+#define Trigger_GPIO_Port GPIOD
 #define SWDIO_Pin GPIO_PIN_13
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
 #define SWCLK_GPIO_Port GPIOA
-#define Trigger_Pin GPIO_PIN_4
-#define Trigger_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
 
