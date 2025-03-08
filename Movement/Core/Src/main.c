@@ -573,8 +573,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, OLED_SCL_Pin|OLED_SDA_Pin|OLED_RS_Pin|OLED_DC_Pin
@@ -1034,32 +1034,34 @@ void stopCar() {
 	  osDelay(2000);
 }
 
-//	uint16_t echo = 0;       // To hold the echo pulse width in microseconds
+uint16_t ultrasonic()
+{
+
+    char buf[10];
     uint16_t distance_return = 0;
 
-	HAL_Delay(50);
+    // Ensure input capture is enabled before triggering the sensor
+
+    // Send trigger pulse
     HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
+    osDelay(50); // Ensure trigger is low before sending pulse
 
-	//Output 1us of Trig
-	HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
-	HAL_Delay(50);
+    HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_SET);
     delay_us(10); // Send 10us trigger pulse
+    HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
+    HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
 
-	HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
-	HAL_TIM_IC_CaptureCallback(&htim1);
+    // Wait for the echo measurement to complete
     osDelay(50);
 
-	//measure
-	OLED_ShowString(10,40, &buf[0]);
-	//OLED_Refresh_Gram();
     // Display measured values
+    // for debug only
     sprintf(buf, "tc1 = %5d us ", tc1);
+    OLED_ShowString(10, 10, buf);
 
+    sprintf(buf, "tc2 = %5d us ", tc2);
+    OLED_ShowString(10, 20, buf);
 
-	sprintf(buf, "Dist = %5.1f cm ", distance);
-	OLED_ShowString(10,50, &buf[0]);
-	OLED_Refresh_Gram();
     sprintf(buf, "Echo = %5d us ", echo);
     OLED_ShowString(10, 30, buf);
 
@@ -1092,21 +1094,29 @@ void delay_us(uint16_t us){
 	while(__HAL_TIM_GET_COUNTER(&htim6) < us);
 }
 
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM4 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) // Check correct timer and channel
+    {
+        if (Is_First_Captured == 0) // Rising edge detected
+        {
+            tc1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+            Is_First_Captured = 1;
+            __HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_FALLING);
+        }
+        else if (Is_First_Captured == 1) // Falling edge detected
+        {
 
- if(htim==&htim1){
-  if(HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_13) == GPIO_PIN_SET){ //If pin on high, means positive edge
-   tc1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3); //Retrieve value and store in tc1
-  } else if (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_13) == GPIO_PIN_RESET){ //If pin on low means negative edge
-   tc2 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3); //Retrieve val and store in tc2
-   if (tc2 > tc1){
-    echo = tc2-tc1;  //Calculate the difference = width of pulse
-   } else {
-    echo = (65535-tc1)+tc2;
-   }
-  }
+            tc2 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+            __HAL_TIM_SET_COUNTER(htim, 0);
 
- }
+            if (tc2 > tc1)
+            {
+                echo = tc2 - tc1;
+            }
+            else
+            {
+            	echo = (65535 - tc1) + tc2; // Timer overflow correction
             }
 
 
