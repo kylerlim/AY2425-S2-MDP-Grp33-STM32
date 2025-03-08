@@ -1092,69 +1092,25 @@ void try(){
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	UNUSED(huart);
-	ringBuzzer(3000); // for debug
-	HAL_UART_Transmit(&huart1, (uint8_t *) aRxBuffer, CMD_MAX_LENGTH, 0xFFFF);
+	
+  // for debugging
+  // HAL_UART_Transmit(&huart1, (uint8_t *) aRxBuffer, CMD_MAX_LENGTH, 0xFFFF);
 
-//	  HAL_UART_Transmit(&huart1, ch, 1, 0xFFFF);
-//  if (huart->Instance == USART1)
-//  {
-//
-//    if (bufferIndex == 4)
-//    {
-//    	blinkLED3(30);
-//    	ringBuzzer(3000);
-//      OLED_Clear();
-//      OLED_Refresh_Gram();
-//      memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-//      bufferIndex = 0;
-//      readyToExecute = 1;
-//    }
-//
-//    else
-//    {
-//		uint8_t unready_str [8] = "Unready";
-//		readyToExecute = 0;
-      OLED_ShowString(10, 20, aRxBuffer); //sanity check
-//      OLED_ShowString(10, 30, unready_str); //sanity check
-      OLED_Refresh_Gram();
-//      bufferIndex++;
-//      if (bufferIndex > CMD_MAX_LENGTH) bufferIndex = 0;  // Prevent overflow, wouldn't occur? but just in case
-//    }
-//
-//  }
-	readyToExecute = 1;
 
-	HAL_UART_Receive_IT (&huart1, aRxBuffer, CMD_MAX_LENGTH);
-  // might need to reposition to the nested-if block 
-  // i.e. "if (bufferIndex % 5 == 0)"
+    OLED_ShowString(10, 20, aRxBuffer); //sanity check
 
+    OLED_Refresh_Gram();
+
+  	readyToExecute = 1;
+
+	HAL_UART_Receive_IT(&huart1, aRxBuffer, CMD_MAX_LENGTH);
+  
 }
 
-
-//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-//	if (huart->Instance == USART3) {  // Check if it's UART3
-//
-//	        if (aRxBuffer[bufferIndex] == '\n') {  // Check for newline character
-//	            aRxBuffer[bufferIndex] = '\0';  // Null-terminate the string
-//
-//	            // Process the received message
-//	            OLED_ShowString(10, 10, (char *)aRxBuffer);
-//	            OLED_Refresh_Gram();
-//
-//	            osDelay(1000);
-//
-//	            // Clear the buffer and reset index
-//	            memset((uint8_t *)aRxBuffer, 0, CMD_MAX_LENGTH);
-//	            bufferIndex = 0;
-//	        } else {
-//	            // Increment buffer index, but prevent overflow
-//	            bufferIndex = (bufferIndex + 1) % CMD_MAX_LENGTH;
-//	        }
-//
-//	        // Restart UART reception for the next byte
-//	        HAL_UART_Receive_IT(&huart3, &aRxBuffer[bufferIndex], 1);
-//	    }
-//}
+void acknowledgeCompletion(){
+  uint8_t reply [3] = "OK\0";
+  HAL_UART_Transmit(&huart1, (uint8_t *) reply, 2, 0xFFFF);
+}
 
 /* USER CODE END 4 */
 
@@ -1308,8 +1264,8 @@ void USART3Receive(void *argument)
 
 		  // send ack back to rpi and ready for next instruction
 			if(flagDone==1){
+        acknowledgeCompletion();
 				osDelay(50); //og 500
-//				HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1,0xFFFF);
 				flagDone = 0;
 			}
 			//flagRead = 0;

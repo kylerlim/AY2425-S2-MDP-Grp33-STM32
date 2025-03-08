@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/zlim132/Documents/GitHub/AY2425-S2-MDP-Grp33-STM32/Movement/Core/Src",
+      "program": "/Users/zlim132/Documents/GitHub/AY2425-S2-MDP-Grp33-STM32/Movement/Core/Src/build/Debug/outDebug"
+    }
+  ]
+}
