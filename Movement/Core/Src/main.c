@@ -62,6 +62,8 @@ uint8_t Is_First_Captured = 0;
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim8;
@@ -97,6 +99,8 @@ static void MX_USART3_UART_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 void USART3Receive(void *argument);
 void turnChecks(void *argument);
 
@@ -153,6 +157,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_TIM6_Init();
   MX_TIM4_Init();
+  MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
 
@@ -316,6 +322,104 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 2 */
   HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 65536;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 10;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 10;
+  if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 0;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 10;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 10;
+  if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 
 }
 
@@ -1219,156 +1323,156 @@ void acknowledgeCompletion(){
 /* USER CODE END Header_USART3Receive */
 void USART3Receive(void *argument)
 {
-/* USER CODE BEGIN USARTR3x */
+  /* USER CODE BEGIN 5 */
 	char ch = 'A';
-		char old = ')';
-//		uint8_t debugMsg[20] = "hello\0";
+			char old = ')';
+	//		uint8_t debugMsg[20] = "hello\0";
 
 
-		int signMagnitude = 1;
-	  /* Infinite loop */
-//		  aRxBuffer[0] = '-';
-//		  aRxBuffer[1] = 'W';
-//		  aRxBuffer[2] = 'A';
-//		  aRxBuffer[3] = 'I';
-//		  aRxBuffer[4] = 'T';
-	  for(;;)
-	  {
-		  magnitude = 0;
-		  key = '\0';
-		  direction = '\0';
+			int signMagnitude = 1;
+		  /* Infinite loop */
+	//		  aRxBuffer[0] = '-';
+	//		  aRxBuffer[1] = 'W';
+	//		  aRxBuffer[2] = 'A';
+	//		  aRxBuffer[3] = 'I';
+	//		  aRxBuffer[4] = 'T';
+		  for(;;)
+		  {
+			  magnitude = 0;
+			  key = '\0';
+			  direction = '\0';
 
-		  key = aRxBuffer[0];
-		  direction = aRxBuffer[1];
-		  magnitude = ((int)(((int)aRxBuffer[2])-48)*100) + ((int)(((int)aRxBuffer[3])-48)*10) + ((int)(((int)aRxBuffer[4])-48));
-		  signMagnitude = 1;
+			  key = aRxBuffer[0];
+			  direction = aRxBuffer[1];
+			  magnitude = ((int)(((int)aRxBuffer[2])-48)*100) + ((int)(((int)aRxBuffer[3])-48)*10) + ((int)(((int)aRxBuffer[4])-48));
+			  signMagnitude = 1;
 
 
 
-//		  if(direction == 'B' || direction == 'b'){
-//			  magnitude *= (int)-1;
-//			  signMagnitude = -1;
-//		  }
+	//		  if(direction == 'B' || direction == 'b'){
+	//			  magnitude *= (int)-1;
+	//			  signMagnitude = -1;
+	//		  }
 
-		  //if(aRxBuffer[0] != old){
-//			if (aRxBuffer[0]!='D' & aRxBuffer[4]!='!'){
-		  if (readyToExecute == 1){
-//				old_Buff1[0] = old_Buff[0];
-//				old_Buff1[1] = old_Buff[1];
-//				old_Buff1[2] = old_Buff[2];
-//				old_Buff1[3] = old_Buff[3];
-//				old_Buff1[4] = old_Buff[4];
-//			old_Buff[0] = aRxBuffer[0];
-//			old_Buff[1] = aRxBuffer[1];
-//			old_Buff[2] = aRxBuffer[2];
-//			old_Buff[3] = aRxBuffer[3];
-//			old_Buff[4] = aRxBuffer[4];
+			  //if(aRxBuffer[0] != old){
+	//			if (aRxBuffer[0]!='D' & aRxBuffer[4]!='!'){
+			  if (readyToExecute == 1){
+	//				old_Buff1[0] = old_Buff[0];
+	//				old_Buff1[1] = old_Buff[1];
+	//				old_Buff1[2] = old_Buff[2];
+	//				old_Buff1[3] = old_Buff[3];
+	//				old_Buff1[4] = old_Buff[4];
+	//			old_Buff[0] = aRxBuffer[0];
+	//			old_Buff[1] = aRxBuffer[1];
+	//			old_Buff[2] = aRxBuffer[2];
+	//			old_Buff[3] = aRxBuffer[3];
+	//			old_Buff[4] = aRxBuffer[4];
 
-			//}
+				//}
 
-			 //osDelay(500); //og 2000 delay
+				 //osDelay(500); //og 2000 delay
 
-			  switch (key){
-				  case 'D':
-					  break;
-				  case 'S':
-					  times_acceptable=0;
-					  driveForward((int)magnitude);
-//					  while(finishCheck());
-					  flagDone=1;
-//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-//					  aRxBuffer[0] = '-';
-//					  aRxBuffer[1] = '-';
-//					  aRxBuffer[2] = '-';
-//					  aRxBuffer[3] = '-';
-//					  aRxBuffer[4] = '-';
-					  osDelay(1000); //og 100
-					  ringBuzzer(3000); // for debug
-					  break;
+				  switch (key){
+					  case 'D':
+						  break;
+					  case 'S':
+						  times_acceptable=0;
+						  driveForward((int)magnitude);
+	//					  while(finishCheck());
+						  flagDone=1;
+	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+	//					  aRxBuffer[0] = '-';
+	//					  aRxBuffer[1] = '-';
+	//					  aRxBuffer[2] = '-';
+	//					  aRxBuffer[3] = '-';
+	//					  aRxBuffer[4] = '-';
+						  osDelay(1000); //og 100
+						  ringBuzzer(3000); // for debug
+						  break;
 
-				  case 'B':
-					  times_acceptable=0;
-					  driveBackward((int)magnitude);
-//					  while(finishCheck());
-					  flagDone=1;
-//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-//					  aRxBuffer[0] = '-';
-//					  aRxBuffer[1] = '-';
-//					  aRxBuffer[2] = '-';
-//					  aRxBuffer[3] = '-';
-//					  aRxBuffer[4] = '-';
-					  osDelay(1000); //og 100
-					  ringBuzzer(3000); // for debug
-					  break;
+					  case 'B':
+						  times_acceptable=0;
+						  driveBackward((int)magnitude);
+	//					  while(finishCheck());
+						  flagDone=1;
+	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+	//					  aRxBuffer[0] = '-';
+	//					  aRxBuffer[1] = '-';
+	//					  aRxBuffer[2] = '-';
+	//					  aRxBuffer[3] = '-';
+	//					  aRxBuffer[4] = '-';
+						  osDelay(1000); //og 100
+						  ringBuzzer(3000); // for debug
+						  break;
 
-				  case 'R':
-					  times_acceptable=0;
-					  turnRightNarrow((int)magnitude);
-//					  while(finishCheck());
-					  flagDone=1;
-//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-//					  aRxBuffer[0] = '-';
-//					  aRxBuffer[1] = '-';
-//					  aRxBuffer[2] = '-';
-//					  aRxBuffer[3] = '-';
-//					  aRxBuffer[4] = '-';
-					  osDelay(1000); //og 100
-					  ringBuzzer(3000); // for debug
-					  break;
+					  case 'R':
+						  times_acceptable=0;
+						  turnRightNarrow((int)magnitude);
+	//					  while(finishCheck());
+						  flagDone=1;
+	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+	//					  aRxBuffer[0] = '-';
+	//					  aRxBuffer[1] = '-';
+	//					  aRxBuffer[2] = '-';
+	//					  aRxBuffer[3] = '-';
+	//					  aRxBuffer[4] = '-';
+						  osDelay(1000); //og 100
+						  ringBuzzer(3000); // for debug
+						  break;
 
-				  case 'L':
-					  times_acceptable=0;
-					  turnLeftNarrow((int)magnitude);
-//					  while(finishCheck());
-					  flagDone=1;
-//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-//					  aRxBuffer[0] = '-';
-//					  aRxBuffer[1] = '-';
-//					  aRxBuffer[2] = '-';
-//					  aRxBuffer[3] = '-';
-//					  aRxBuffer[4] = '-';
-					  osDelay(1000); //og 100
-					  ringBuzzer(3000); // for debug
-					  break;
+					  case 'L':
+						  times_acceptable=0;
+						  turnLeftNarrow((int)magnitude);
+	//					  while(finishCheck());
+						  flagDone=1;
+	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+	//					  aRxBuffer[0] = '-';
+	//					  aRxBuffer[1] = '-';
+	//					  aRxBuffer[2] = '-';
+	//					  aRxBuffer[3] = '-';
+	//					  aRxBuffer[4] = '-';
+						  osDelay(1000); //og 100
+						  ringBuzzer(3000); // for debug
+						  break;
 
-				  case 'P':
-					  turnToNextFace();
-					  flagDone=1;
-					  break;
+					  case 'P':
+						  turnToNextFace();
+						  flagDone=1;
+						  break;
 
-				  case '-':
-					  times_acceptable=0;
-					  stopCar();
-//					  while(finishCheck());
-					  flagDone=1;
-//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
+					  case '-':
+						  times_acceptable=0;
+						  stopCar();
+	//					  while(finishCheck());
+						  flagDone=1;
+	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
 
-//					  aRxBuffer[0] = '-';
-//					  aRxBuffer[1] = '-';
-//					  aRxBuffer[2] = '-';
-//					  aRxBuffer[3] = '-';
-//					  aRxBuffer[4] = '-';
-					  osDelay(1000); //og 100
-					  break;
-				  default:
-					  break;
+	//					  aRxBuffer[0] = '-';
+	//					  aRxBuffer[1] = '-';
+	//					  aRxBuffer[2] = '-';
+	//					  aRxBuffer[3] = '-';
+	//					  aRxBuffer[4] = '-';
+						  osDelay(1000); //og 100
+						  break;
+					  default:
+						  break;
+				  }
+				  old = aRxBuffer[0];
 			  }
-			  old = aRxBuffer[0];
+
+
+
+			  // send ack back to rpi and ready for next instruction
+				if(flagDone==1){
+					acknowledgeCompletion();
+					osDelay(50); //og 500
+					flagDone = 0;
+				}
+				//flagRead = 0;
+				osDelay(1);
 		  }
 
-
-
-		  // send ack back to rpi and ready for next instruction
-			if(flagDone==1){
-				acknowledgeCompletion();
-				osDelay(50); //og 500
-				flagDone = 0;
-			}
-			//flagRead = 0;
-			osDelay(1);
-	  }
-
-  /* USER CODE END USARTR3x */
+  /* USER CODE END 5 */
 }
 
 /* USER CODE BEGIN Header_turnChecks */
