@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "oled.h"
+#include "math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -1074,6 +1075,27 @@ uint16_t ultrasonic()
     return distance_return;
 }
 
+uint16_t readIRSensor(ADC_HandleTypeDef *hadc) {
+    char buf[20];
+
+    HAL_ADC_Start(hadc);
+    HAL_ADC_PollForConversion(hadc, 10);
+    uint16_t ADC_VAL = HAL_ADC_GetValue(hadc);
+    HAL_ADC_Stop(hadc);
+
+    // Display ADC value
+    sprintf(buf, "ADC Val: %5d", ADC_VAL);
+    OLED_ShowString(10, 10, buf);
+
+    // Compute and display distance
+    uint16_t distance = 136.68 * exp (924.195/ ADC_VAL) - 140.33;
+//    		distanceCalc(ADC_VAL);
+    sprintf(buf, "Dist: %5d", distance);
+    OLED_ShowString(10, 30, buf);
+    OLED_Refresh_Gram();
+
+    return ADC_VAL;
+}
 
 void turnToNextFace(){
 
@@ -1183,6 +1205,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void acknowledgeCompletion(){
   uint8_t reply [3] = "OK\0";
   HAL_UART_Transmit(&huart1, (uint8_t *) reply, 2, 0xFFFF);
+  readyToExecute = 0;
 }
 
 /* USER CODE END 4 */
