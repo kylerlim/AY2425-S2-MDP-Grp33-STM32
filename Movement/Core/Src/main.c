@@ -810,11 +810,14 @@ void moveBackward(uint8_t distance_in_cm) {
 }
 
 
-int PID_Control(uint8_t right0Left1) {
+uint16_t PID_Control(uint8_t right0Left1) {
   // PID gains
   const float Kp = 1.0, Ki = 0.0, Kd = 0.0;
   float derivative;
   float MAX_INTEGRAL = 10;
+  
+  uint16_t MAX_PWM_VAL = 3000;
+  uint16_t MIN_PWM_VAL = 400;
   
   // Select variables based on right0Left1 flag
   float dT = (right0Left1 == 1) ? dTLeft : dTRight;
@@ -861,7 +864,8 @@ int PID_Control(uint8_t right0Left1) {
       HAL_GPIO_WritePin(GPIOA, BIN2_Pin, pin1);
       HAL_GPIO_WritePin(GPIOA, BIN1_Pin, pin2);
   }
-
+  if (abs(u) > MAX_PWM_VAL) return MAX_PWM_VAL;
+  if (abs(u)) < MIN_PWM_VAL) return MIN_PWM_VAL;
   return abs(u);
 }
 
