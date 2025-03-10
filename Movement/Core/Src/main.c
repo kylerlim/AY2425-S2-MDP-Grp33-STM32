@@ -54,6 +54,8 @@ const double WHEEL_CIRCUM = WHEEL_DIAMETER * PI;
 const double COUNT_PER_CM = COUNT_PER_REV / WHEEL_CIRCUM;
 
 
+
+
 // PID variables
 float dTRight, dTLeft;
 
@@ -798,14 +800,37 @@ void ringBuzzer(int period){
 
 // NEW DRIVEFORWARD
 void moveForward(uint8_t distance_in_cm) {
+
+  char buf[10]; // for debug
+
 	int32_t targetTicks = (int32_t) (distance_in_cm * COUNT_PER_CM);
-	leftEncoderVal = rightEncoderVal = targetTicks;
+	leftTargetVal = rightTargetVal = targetTicks;
+
+  // for debug
+  sprintf(buf, "right target = %5d", rightTargetVal);
+  OLED_ShowString(10, 40, buf);
+
+  sprintf(buf, "left target = %5d", leftTargetVal);
+  OLED_ShowString(10, 50, buf);
+  OLED_Refresh_Gram();
 	pwmVal_servo = SERVO_STRAIGHT;
 }
 
 void moveBackward(uint8_t distance_in_cm) {
+  
+  char buf[10]; // for debug
+
 	int32_t targetTicks = (int32_t) - 1 * (distance_in_cm * COUNT_PER_CM);
-	leftEncoderVal = rightEncoderVal = targetTicks;
+	leftTargetVal = rightTargetVal = targetTicks;
+
+    // for debug
+    sprintf(buf, "right target = %5d", rightTargetVal);
+    OLED_ShowString(10, 40, buf);
+  
+    sprintf(buf, "left target = %5d", leftTargetVal);
+    OLED_ShowString(10, 50, buf);
+    OLED_Refresh_Gram();
+
 	pwmVal_servo = SERVO_STRAIGHT;
 }
 
@@ -1165,20 +1190,20 @@ void encoderLeftTask(void *argument)
 	int8_t dirL = 1;
 	int diff = 0;
 	uint32_t tick = HAL_GetTick();
-
+  char buf[10]; // for debug
   /* Infinite loop */
   for(;;)
   {
 
-	  if (HAL_GetTick() - tick > 10L){ // 10ms delay
+	  if (HAL_GetTick() - tick > 10L){ // 10ms delay, adjust accordingly
 		  dTLeft =  (HAL_GetTick() - tick) / 1000;
 		  cnt_B = __HAL_TIM_GET_COUNTER(htim);
 		  if (__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
-			  dirL = 1;
+			  dirL = -1;
 			  diff = 65536 - cnt_B;
 		  }
 		  else{
-				dirL = -1;
+				dirL = 1;
 				diff = cnt_B;
 		  }
 
@@ -1191,6 +1216,11 @@ void encoderLeftTask(void *argument)
 		  }
 		  __HAL_TIM_SET_COUNTER(htim, 0);
 
+
+      // for debug
+      sprintf(buf, "left cur = %5d", leftEncoderVal);
+      OLED_ShowString(10, 10, buf);
+      OLED_Refresh_Gram();
 		  tick = HAL_GetTick();
 	  }
 //    osDelay(1);
@@ -1215,20 +1245,20 @@ void encoderRightTask(void *argument)
 	int8_t dirR = 1;
 	int diff = 0;
 	uint32_t tick = HAL_GetTick();
-
+  char buf[10]; // for debug
   /* Infinite loop */
   for(;;)
   {
 
-	  if (HAL_GetTick() - tick > 10L){ // 10ms delay
+	  if (HAL_GetTick() - tick > 10L){ // 10ms delay, adjust accordingly
 		  dTRight = (HAL_GetTick() - tick) / 1000;
 		  cnt_A = __HAL_TIM_GET_COUNTER(htim);
 		  if (__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
-			dirR = 1;
+			dirR = -1;
 			diff = 65536 - cnt_A;
 		  }
 		  else{
-				dirR = -1;
+				dirR = 1;
 				diff = cnt_A;
 		  }
 
@@ -1242,6 +1272,12 @@ void encoderRightTask(void *argument)
 		  __HAL_TIM_SET_COUNTER(htim, 0);
 
 		  tick = HAL_GetTick();
+
+      // for debug
+      sprintf(buf, "right cur = %5d", rightEncoderVal);
+      OLED_ShowString(10, 20, buf);
+      OLED_Refresh_Gram();
+  
 	  }
 //    osDelay(1);
   }
