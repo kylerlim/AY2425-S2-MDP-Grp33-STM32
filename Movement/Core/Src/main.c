@@ -24,6 +24,8 @@
 /* USER CODE BEGIN Includes */
 #include "oled.h"
 #include "math.h"
+#include <stdio.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,11 +36,15 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+
 // SERVO-MOTOR
 uint16_t SERVO_STRAIGHT = 146;
 uint16_t SERVO_LEFT = 72;
 uint16_t SERVO_RIGHT = 186; // original at 220, Right turn has a handicap
 uint16_t pwmVal_servo;
+const double TURNING_RADIUS = 30.0; // TO FIND OUT AGAIN, based on SERVO_L/R
+const double WHEELBASE = 12.0; // TO FIND OUT AGAIN, separation between two back wheels
+
 
 // hard-code TO-DELETE
 uint16_t DC_RIGHT = 2100;
@@ -159,7 +165,7 @@ volatile uint8_t bufferIndex = 0;
 int flagDone = 0;
 char key;
 char direction;
-int magnitude = 0;
+uint16_t magnitude = 0;
 int flagRead = 0;
 int flagWrite = 0;
 
@@ -801,16 +807,16 @@ void ringBuzzer(int period){
 // NEW DRIVEFORWARD
 void moveForward(uint8_t distance_in_cm) {
 
-  char buf[10]; // for debug
+  char buf[20]; // for debug
 
 	int32_t targetTicks = (int32_t) (distance_in_cm * COUNT_PER_CM);
 	leftTargetVal = rightTargetVal = targetTicks;
 
   // for debug
-  sprintf(buf, "right target = %5d", rightTargetVal);
+  sprintf(buf, "rT= %5d", rightTargetVal);
   OLED_ShowString(10, 40, buf);
 
-  sprintf(buf, "left target = %5d", leftTargetVal);
+  sprintf(buf, "lT= %5d", leftTargetVal);
   OLED_ShowString(10, 50, buf);
   OLED_Refresh_Gram();
 	pwmVal_servo = SERVO_STRAIGHT;
@@ -818,20 +824,68 @@ void moveForward(uint8_t distance_in_cm) {
 
 void moveBackward(uint8_t distance_in_cm) {
   
-  char buf[10]; // for debug
+  uint8_t buf[20]; // for debug
 
 	int32_t targetTicks = (int32_t) - 1 * (distance_in_cm * COUNT_PER_CM);
 	leftTargetVal = rightTargetVal = targetTicks;
 
     // for debug
-    sprintf(buf, "right target = %5d", rightTargetVal);
+    sprintf(buf, "rT = %5d", rightTargetVal);
     OLED_ShowString(10, 40, buf);
   
-    sprintf(buf, "left target = %5d", leftTargetVal);
+    sprintf(buf, "lT= %5d", leftTargetVal);
     OLED_ShowString(10, 50, buf);
     OLED_Refresh_Gram();
 
 	pwmVal_servo = SERVO_STRAIGHT;
+}
+
+void moveLeftForward(uint16_t angle) {
+    float outerArc = (PI * (TURNING_RADIUS + (WHEELBASE / 2)) * angle) / 180.0;
+    float innerArc = (PI * (TURNING_RADIUS - (WHEELBASE / 2)) * angle) / 180.0;
+
+    int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
+    int32_t innerTicks = (int32_t)(innerArc * COUNT_PER_CM);
+
+    leftEncoderVal = innerTicks;   // Inner wheel moves less
+    rightEncoderVal = outerTicks;  // Outer wheel moves more
+    pwmVal_servo = SERVO_LEFT;
+}
+
+void moveLeftBackward(uint16_t angle) {
+    float outerArc = (PI * (TURNING_RADIUS + (WHEELBASE / 2)) * angle) / 180.0;
+    float innerArc = (PI * (TURNING_RADIUS - (WHEELBASE / 2)) * angle) / 180.0;
+
+    int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
+    int32_t innerTicks = (int32_t)(innerArc * COUNT_PER_CM);
+
+    leftEncoderVal = -innerTicks;   // Reverse movement
+    rightEncoderVal = -outerTicks;
+    pwmVal_servo = SERVO_LEFT;
+}
+
+void moveRightForward(uint16_t angle) {
+    float outerArc = (PI * (TURNING_RADIUS + (WHEELBASE / 2)) * angle) / 180.0;
+    float innerArc = (PI * (TURNING_RADIUS - (WHEELBASE / 2)) * angle) / 180.0;
+
+    int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
+    int32_t innerTicks = (int32_t)(innerArc * COUNT_PER_CM);
+
+    leftEncoderVal = outerTicks;   // Outer wheel moves more
+    rightEncoderVal = innerTicks;  // Inner wheel moves less
+    pwmVal_servo = SERVO_RIGHT;
+}
+
+void moveRightBackward(uint16_t angle) {
+    float outerArc = (PI * (TURNING_RADIUS + (WHEELBASE / 2)) * angle) / 180.0;
+    float innerArc = (PI * (TURNING_RADIUS - (WHEELBASE / 2)) * angle) / 180.0;
+
+    int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
+    int32_t innerTicks = (int32_t)(innerArc * COUNT_PER_CM);
+
+    leftEncoderVal = -outerTicks;  // Reverse movement
+    rightEncoderVal = -innerTicks;
+    pwmVal_servo = SERVO_RIGHT;
 }
 
 
@@ -841,8 +895,8 @@ uint16_t PID_Control(uint8_t right0Left1) {
   float derivative;
   float MAX_INTEGRAL = 10;
   
-  uint16_t MAX_PWM_VAL = 3000;
-  uint16_t MIN_PWM_VAL = 400;
+  uint16_t MAX_PWM_VAL = 3000; // adjust
+  uint16_t MIN_PWM_VAL = 400; // adjust
   
   // Select variables based on right0Left1 flag
   float dT = (right0Left1 == 1) ? dTLeft : dTRight;
@@ -889,8 +943,9 @@ uint16_t PID_Control(uint8_t right0Left1) {
       HAL_GPIO_WritePin(GPIOA, BIN2_Pin, pin1);
       HAL_GPIO_WritePin(GPIOA, BIN1_Pin, pin2);
   }
+
   if (abs(u) > MAX_PWM_VAL) return MAX_PWM_VAL;
-  if (abs(u)) < MIN_PWM_VAL) return MIN_PWM_VAL;
+  if (abs(u) < MIN_PWM_VAL) return MIN_PWM_VAL;
   return abs(u);
 }
 
@@ -901,7 +956,7 @@ uint16_t PID_Control(uint8_t right0Left1) {
 uint16_t ultrasonic()
 {
 
-    char buf[10];
+    char buf[20];
     uint16_t distance_return = 0;
 
     // Ensure input capture is enabled before triggering the sensor
@@ -919,6 +974,7 @@ uint16_t ultrasonic()
     osDelay(50);
 
     // Display measured values
+
     // for debug only
     sprintf(buf, "tc1 = %5d us ", tc1);
     OLED_ShowString(10, 10, buf);
@@ -934,6 +990,8 @@ uint16_t ultrasonic()
     sprintf(buf, "Dist = %4d cm ", distance_return);
     OLED_ShowString(10, 40, buf);
     OLED_Refresh_Gram();
+
+    // debug end
 
     return distance_return;
 }
@@ -1027,12 +1085,12 @@ void acknowledgeCompletion(){
 void USART1Receive(void *argument)
 {
   /* USER CODE BEGIN 5 */
-	char ch = 'A';
-			char old = ')';
-	//		uint8_t debugMsg[20] = "hello\0";
+//	char ch = 'A';
+//	char old = ')';
+//	uint8_t debugMsg[20] = "hello\0";
 
 
-			int signMagnitude = 1;
+//	int signMagnitude = 1;
 		  /* Infinite loop */
 	//		  aRxBuffer[0] = '-';
 	//		  aRxBuffer[1] = 'W';
@@ -1048,7 +1106,7 @@ void USART1Receive(void *argument)
 			  key = aRxBuffer[0];
 			  direction = aRxBuffer[1];
 			  magnitude = ((int)(((int)aRxBuffer[2])-48)*100) + ((int)(((int)aRxBuffer[3])-48)*10) + ((int)(((int)aRxBuffer[4])-48));
-			  signMagnitude = 1;
+//			  signMagnitude = 1;
 
 
 
@@ -1080,71 +1138,57 @@ void USART1Receive(void *argument)
 						  break;
 					  case 'S':
 						  times_acceptable=0;
-						  moveForward((int)magnitude);
-	//					  while(finishCheck());
+						  moveForward((uint16_t)magnitude);
 						  flagDone=1;
-	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-	//					  aRxBuffer[0] = '-';
-	//					  aRxBuffer[1] = '-';
-	//					  aRxBuffer[2] = '-';
-	//					  aRxBuffer[3] = '-';
-	//					  aRxBuffer[4] = '-';
-						  osDelay(1000); //og 100
-						  ringBuzzer(3000); // for debug
+						  osDelay(10); //og 100
+						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'B':
 						  times_acceptable=0;
-						  moveBackward((int)magnitude);
-	//					  while(finishCheck());
+						  moveBackward((uint16_t)magnitude);
 						  flagDone=1;
-	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-	//					  aRxBuffer[0] = '-';
-	//					  aRxBuffer[1] = '-';
-	//					  aRxBuffer[2] = '-';
-	//					  aRxBuffer[3] = '-';
-	//					  aRxBuffer[4] = '-';
-						  osDelay(1000); //og 100
-						  ringBuzzer(3000); // for debug
+						  osDelay(10); //og 100
+						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'R':
 						  times_acceptable=0;
-//						  turnRightNarrow((int)magnitude);
-	//					  while(finishCheck());
+						  moveRightForward((uint16_t) magnitude);
 						  flagDone=1;
-	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-	//					  aRxBuffer[0] = '-';
-	//					  aRxBuffer[1] = '-';
-	//					  aRxBuffer[2] = '-';
-	//					  aRxBuffer[3] = '-';
-	//					  aRxBuffer[4] = '-';
-						  osDelay(1000); //og 100
-						  ringBuzzer(3000); // for debug
+						  osDelay(10); //og 100
+						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'L':
 						  times_acceptable=0;
-//						  turnLeftNarrow((int)magnitude);
-	//					  while(finishCheck());
+						  moveLeftForward((uint16_t) magnitude);
 						  flagDone=1;
-	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-	//					  aRxBuffer[0] = '-';
-	//					  aRxBuffer[1] = '-';
-	//					  aRxBuffer[2] = '-';
-	//					  aRxBuffer[3] = '-';
-	//					  aRxBuffer[4] = '-';
-						  osDelay(1000); //og 100
-						  ringBuzzer(3000); // for debug
+						  osDelay(10); //og 100
+						  ringBuzzer(10); // for debug
 						  break;
+
+            
+					  case 'W':
+              times_acceptable=0;
+              moveRightBackward((uint16_t) magnitude);
+              flagDone=1;
+              osDelay(10); //og 100
+              ringBuzzer(10); // for debug
+              break;
+
+            case 'V':
+              times_acceptable=0;
+              moveLeftBackward((uint16_t) magnitude);
+              flagDone=1;
+              osDelay(10); //og 100
+              ringBuzzer(10); // for debug
+              break;
 
 					  case '-':
 						  times_acceptable=0;
 //						  stopCar();
-	//					  while(finishCheck());
 						  flagDone=1;
-	//					  memset(aRxBuffer, 0 , CMD_MAX_LENGTH);
-
 	//					  aRxBuffer[0] = '-';
 	//					  aRxBuffer[1] = '-';
 	//					  aRxBuffer[2] = '-';
@@ -1155,10 +1199,8 @@ void USART1Receive(void *argument)
 					  default:
 						  break;
 				  }
-				  old = aRxBuffer[0];
+//				  old = aRxBuffer[0];
 			  }
-
-
 
 			  // send ack back to rpi and ready for next instruction
 				if(flagDone==1){
@@ -1190,7 +1232,7 @@ void encoderLeftTask(void *argument)
 	int8_t dirL = 1;
 	int diff = 0;
 	uint32_t tick = HAL_GetTick();
-  char buf[10]; // for debug
+	uint8_t buf[20]; // for debug
   /* Infinite loop */
   for(;;)
   {
@@ -1218,7 +1260,7 @@ void encoderLeftTask(void *argument)
 
 
       // for debug
-      sprintf(buf, "left cur = %5d", leftEncoderVal);
+      sprintf(buf, "lC = %5d", leftEncoderVal);
       OLED_ShowString(10, 10, buf);
       OLED_Refresh_Gram();
 		  tick = HAL_GetTick();
@@ -1245,7 +1287,7 @@ void encoderRightTask(void *argument)
 	int8_t dirR = 1;
 	int diff = 0;
 	uint32_t tick = HAL_GetTick();
-  char buf[10]; // for debug
+    uint8_t buf[20]; // for debug
   /* Infinite loop */
   for(;;)
   {
@@ -1274,7 +1316,7 @@ void encoderRightTask(void *argument)
 		  tick = HAL_GetTick();
 
       // for debug
-      sprintf(buf, "right cur = %5d", rightEncoderVal);
+      sprintf(buf, "rC = %5d", rightEncoderVal);
       OLED_ShowString(10, 20, buf);
       OLED_Refresh_Gram();
   
