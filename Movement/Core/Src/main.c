@@ -55,7 +55,7 @@ uint16_t DC_LEFT = 1670;
 #define COUNT_PER_REV 1320  // Quadrature-encoded pulses per wheel revolution
 
 const double PI = 3.141592653;
-const double WHEEL_DIAMETER = 7.0;  // cm
+const double WHEEL_DIAMETER = 6.5;  // cm
 const double WHEEL_CIRCUM = WHEEL_DIAMETER * PI;
 const double COUNT_PER_CM = COUNT_PER_REV / WHEEL_CIRCUM;
 
@@ -67,7 +67,7 @@ float dTRight, dTLeft;
 
 // REAR WHEELS ENCODER VARIABLES
 int16_t rightEncoderVal = 0, leftEncoderVal = 0;
-int16_t rightTargetVal = 0, leftTargetVal = 0;
+int16_t rightTargetVal = 4000, leftTargetVal = 4000;
 int16_t rightErrorVal = 0, leftErrorVal = 0;
 int32_t rightIntegral = 0, leftIntegral = 0;
 
@@ -1181,20 +1181,20 @@ void USART1Receive(void *argument)
 
             
 					  case 'W':
-              times_acceptable=0;
-              moveRightBackward((uint16_t) magnitude);
-              flagDone=1;
-              osDelay(10); //og 100
-              ringBuzzer(10); // for debug
-              break;
+						  times_acceptable=0;
+						  moveRightBackward((uint16_t) magnitude);
+						  flagDone=1;
+						  osDelay(10); //og 100
+						  ringBuzzer(10); // for debug
+						  break;
 
-            case 'V':
-              times_acceptable=0;
-              moveLeftBackward((uint16_t) magnitude);
-              flagDone=1;
-              osDelay(10); //og 100
-              ringBuzzer(10); // for debug
-              break;
+					  case 'V':
+						  times_acceptable=0;
+						  moveLeftBackward((uint16_t) magnitude);
+						  flagDone=1;
+						  osDelay(10); //og 100
+						  ringBuzzer(10); // for debug
+						  break;
 
 					  case '-':
 						  times_acceptable=0;
@@ -1218,6 +1218,7 @@ void USART1Receive(void *argument)
 					acknowledgeCompletion();
 					osDelay(50); //og 500
 					flagDone = 0;
+					rightEncoderVal = 0, leftEncoderVal = 0;
 				}
 				//flagRead = 0;
 				osDelay(1);
