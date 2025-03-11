@@ -40,10 +40,10 @@
 // SERVO-MOTOR
 uint16_t SERVO_STRAIGHT = 146;
 uint16_t SERVO_LEFT = 72;
-uint16_t SERVO_RIGHT = 186; // original at 220, Right turn has a handicap
+uint16_t SERVO_RIGHT = 200; // original at 220, Right turn has a handicap
 uint16_t pwmVal_servo;
-const double TURNING_RADIUS = 30.0; // TO FIND OUT AGAIN, based on SERVO_L/R
-const double WHEELBASE = 12.0; // TO FIND OUT AGAIN, separation between two back wheels
+const double TURNING_RADIUS = 27; // TO FIND OUT AGAIN, based on SERVO_L/R
+const double WHEELBASE = 16.8; // TO FIND OUT AGAIN, separation between two back wheels
 
 
 // hard-code TO-DELETE
@@ -67,7 +67,7 @@ float dTRight, dTLeft;
 
 // REAR WHEELS ENCODER VARIABLES
 int16_t rightEncoderVal = 0, leftEncoderVal = 0;
-int16_t rightTargetVal = 3000, leftTargetVal = 3000;
+int16_t rightTargetVal = 0, leftTargetVal = 0;
 int16_t rightErrorVal = 0, leftErrorVal = 0;
 int32_t rightIntegral = 0, leftIntegral = 0;
 
@@ -824,7 +824,6 @@ pwmVal_servo = SERVO_STRAIGHT;
 
 void moveBackward(uint8_t distance_in_cm) {
   
-  uint8_t buf[20]; // for debug
 
 	int32_t targetTicks = (int32_t) - 1 * (distance_in_cm * COUNT_PER_CM);
 	leftTargetVal = rightTargetVal = targetTicks;
@@ -882,62 +881,9 @@ void moveRightBackward(uint16_t angle) {
     pwmVal_servo = SERVO_RIGHT;
 }
 
-//uint16_t PID_Control(uint8_t right0Left1) {
-//	// Determine motor direction
-//  float dT = (right0Left1 == 1) ? dTLeft : dTRight;
-//  int* errorVal = (right0Left1 == 1) ? &leftErrorVal : &rightErrorVal;
-//  int* encoderVal = (right0Left1 == 1) ? &leftEncoderVal : &rightEncoderVal;
-//  int* targetVal = (right0Left1 == 1) ? &leftTargetVal : &rightTargetVal;
-//  float* integral = (right0Left1 == 1) ? &leftIntegral : &rightIntegral;
-//  GPIO_PinState pin1, pin2;
-//
-//  // Calculate PID components
-//  int prevError = *errorVal;
-//  *errorVal = *encoderVal - *targetVal;
-//
-//
-//	if (*errorVal < 0) {
-//		pin1 = GPIO_PIN_SET;
-//		pin2 = GPIO_PIN_RESET;
-//	} else {
-//		pin1 = GPIO_PIN_RESET;
-//		pin2 = GPIO_PIN_SET;
-//	}
-//
-//	// Apply motor control based on selection
-//	if (right0Left1 == 1) {
-//		HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, pin1);
-//		HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, pin2);
-//	} else {
-//		HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, pin1);
-//		HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, pin2);
-//	}
-//
-//	int *error = abs(*error);
-//		if(*error > 2000){
-//			return 3000;
-//		}else if(*error > 500){
-//			return 2000;
-//		}else if(*error > 200){
-//			return 1400;
-//		}else if(*error > 100){
-//			return 1000;
-//		}else if(*error > 2){
-//			times_acceptable++;
-//			return 500;
-//		}else if(*error >=1){
-////			times_acceptable++;
-//			return 0;
-//		}else{
-////			times_acceptable++;
-//			return 0;
-//		}
-//
-//
-//}
 uint16_t PID_Control_right() {
     // PID gains (tune as needed)
-    const float Kp = 5.0f, Ki = 0.0f, Kd = 0.0f;
+    const float Kp = 35.0f, Ki = 0.0f, Kd = 3.0f;
     const float MAX_INTEGRAL = 10.0f;
     const uint16_t MAX_PWM_VAL = 3000;  // Adjust as needed
     const uint16_t MIN_PWM_VAL = 500;   // Adjust as needed
@@ -948,12 +894,6 @@ uint16_t PID_Control_right() {
 
     // Compute error
     int errorVal = rightEncoderVal - rightTargetVal;
-
-    // If error is small, stop and ring buzzer
-    if (abs(errorVal) <= 200) {
-        ringBuzzer(10);
-        return 0;
-    }
 
     // Compute derivative (only if dT > 0)
     float derivative = (dTRight > 0) ? (errorVal - prevError) / dTRight : 0.0f;
@@ -984,7 +924,7 @@ uint16_t PID_Control_right() {
 
 uint16_t PID_Control_left() {
     // PID gains (tune as needed)
-    const float Kp = 5.0f, Ki = 0.0f, Kd = 0.0f;
+    const float Kp = 20.0f, Ki = 0.0f, Kd = 4.0f;
     const float MAX_INTEGRAL = 10.0f;
     const uint16_t MAX_PWM_VAL = 3000;  // Adjust as needed
     const uint16_t MIN_PWM_VAL = 500;   // Adjust as needed
@@ -995,12 +935,6 @@ uint16_t PID_Control_left() {
 
     // Compute error
     int errorVal = leftEncoderVal - leftTargetVal;
-
-    // If error is small, stop and ring buzzer
-    if (abs(errorVal) <= 200) {
-        ringBuzzer(10);
-        return 0;
-    }
 
     // Compute derivative (only if dT > 0)
     float derivative = (dTLeft > 0) ? (errorVal - prevError) / dTLeft : 0.0f;
@@ -1435,6 +1369,8 @@ void dcMotorTask(void *argument)
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2,  PID_Control_left());
 //	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, rightTargetVal);
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4,  PID_Control_right());
+
+	  htim1.Instance->CCR4 = pwmVal_servo;
 	  osDelay(25);
   }
   /* USER CODE END dcMotorTask */
