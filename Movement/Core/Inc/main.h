@@ -63,10 +63,10 @@ void Error_Handler(void);
 #define OLED_SCL_GPIO_Port GPIOE
 #define OLED_SDA_Pin GPIO_PIN_6
 #define OLED_SDA_GPIO_Port GPIOE
-#define AIN2_Pin GPIO_PIN_2
-#define AIN2_GPIO_Port GPIOA
-#define AIN1_Pin GPIO_PIN_3
-#define AIN1_GPIO_Port GPIOA
+#define EncoderD_CH1_Pin GPIO_PIN_0
+#define EncoderD_CH1_GPIO_Port GPIOA
+#define EncoderD_CH2_Pin GPIO_PIN_1
+#define EncoderD_CH2_GPIO_Port GPIOA
 #define BIN1_Pin GPIO_PIN_4
 #define BIN1_GPIO_Port GPIOA
 #define BIN2_Pin GPIO_PIN_5
@@ -83,6 +83,10 @@ void Error_Handler(void);
 #define LED3_GPIO_Port GPIOE
 #define BUZZER_Pin GPIO_PIN_10
 #define BUZZER_GPIO_Port GPIOB
+#define DIN1_Pin GPIO_PIN_11
+#define DIN1_GPIO_Port GPIOB
+#define DIN2_Pin GPIO_PIN_15
+#define DIN2_GPIO_Port GPIOB
 #define Echo_Pin GPIO_PIN_12
 #define Echo_GPIO_Port GPIOD
 #define Trigger_Pin GPIO_PIN_13
@@ -91,10 +95,6 @@ void Error_Handler(void);
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
 #define SWCLK_GPIO_Port GPIOA
-#define EncoderA_CH1_Pin GPIO_PIN_15
-#define EncoderA_CH1_GPIO_Port GPIOA
-#define EncoderA_CH2_Pin GPIO_PIN_3
-#define EncoderA_CH2_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
