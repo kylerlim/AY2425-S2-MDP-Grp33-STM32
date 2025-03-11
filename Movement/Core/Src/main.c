@@ -67,7 +67,7 @@ float dTRight, dTLeft;
 
 // REAR WHEELS ENCODER VARIABLES
 int16_t rightEncoderVal = 0, leftEncoderVal = 0;
-int16_t rightTargetVal = 2000, leftTargetVal = 2000;
+int16_t rightTargetVal = 3000, leftTargetVal = 3000;
 int16_t rightErrorVal = 0, leftErrorVal = 0;
 int32_t rightIntegral = 0, leftIntegral = 0;
 
@@ -882,69 +882,152 @@ void moveRightBackward(uint16_t angle) {
     pwmVal_servo = SERVO_RIGHT;
 }
 
+//uint16_t PID_Control(uint8_t right0Left1) {
+//	// Determine motor direction
+//  float dT = (right0Left1 == 1) ? dTLeft : dTRight;
+//  int* errorVal = (right0Left1 == 1) ? &leftErrorVal : &rightErrorVal;
+//  int* encoderVal = (right0Left1 == 1) ? &leftEncoderVal : &rightEncoderVal;
+//  int* targetVal = (right0Left1 == 1) ? &leftTargetVal : &rightTargetVal;
+//  float* integral = (right0Left1 == 1) ? &leftIntegral : &rightIntegral;
+//  GPIO_PinState pin1, pin2;
+//
+//  // Calculate PID components
+//  int prevError = *errorVal;
+//  *errorVal = *encoderVal - *targetVal;
+//
+//
+//	if (*errorVal < 0) {
+//		pin1 = GPIO_PIN_SET;
+//		pin2 = GPIO_PIN_RESET;
+//	} else {
+//		pin1 = GPIO_PIN_RESET;
+//		pin2 = GPIO_PIN_SET;
+//	}
+//
+//	// Apply motor control based on selection
+//	if (right0Left1 == 1) {
+//		HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, pin1);
+//		HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, pin2);
+//	} else {
+//		HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, pin1);
+//		HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, pin2);
+//	}
+//
+//	int *error = abs(*error);
+//		if(*error > 2000){
+//			return 3000;
+//		}else if(*error > 500){
+//			return 2000;
+//		}else if(*error > 200){
+//			return 1400;
+//		}else if(*error > 100){
+//			return 1000;
+//		}else if(*error > 2){
+//			times_acceptable++;
+//			return 500;
+//		}else if(*error >=1){
+////			times_acceptable++;
+//			return 0;
+//		}else{
+////			times_acceptable++;
+//			return 0;
+//		}
+//
+//
+//}
+uint16_t PID_Control_right() {
+    // PID gains (tune as needed)
+    const float Kp = 5.0f, Ki = 0.0f, Kd = 0.0f;
+    const float MAX_INTEGRAL = 10.0f;
+    const uint16_t MAX_PWM_VAL = 3000;  // Adjust as needed
+    const uint16_t MIN_PWM_VAL = 500;   // Adjust as needed
 
-uint16_t PID_Control(uint8_t right0Left1) {
-  // PID gains
-  const float Kp = 0.3, Ki = 0.2, Kd = 1.2;
-  float derivative;
-  float MAX_INTEGRAL = 10;
-  
-  uint16_t MAX_PWM_VAL = 3000; // adjust
-  uint16_t MIN_PWM_VAL = 500; // adjust
-  
-  // Select variables based on right0Left1 flag
-  float dT = (right0Left1 == 1) ? dTLeft : dTRight;
-  int* errorVal = (right0Left1 == 1) ? &leftErrorVal : &rightErrorVal;
-  int* encoderVal = (right0Left1 == 1) ? &leftEncoderVal : &rightEncoderVal;
-  int* targetVal = (right0Left1 == 1) ? &leftTargetVal : &rightTargetVal;
-  float* integral = (right0Left1 == 1) ? &leftIntegral : &rightIntegral;
-  GPIO_PinState pin1, pin2;
-  
-  // Calculate PID components
-  int prevError = *errorVal;
-  *errorVal = *encoderVal - *targetVal;
+    // Static variables for persistent error tracking
+    static int prevError = 0;
+    static float integral = 0.0f;
 
-  if (dT > 0) {
-      derivative = (*errorVal - prevError) / dT;
-  } else {
-      derivative = 0;
-  }
+    // Compute error
+    int errorVal = rightEncoderVal - rightTargetVal;
 
-  *integral += (*errorVal * dT);
+    // If error is small, stop and ring buzzer
+    if (abs(errorVal) <= 200) {
+        ringBuzzer(10);
+        return 0;
+    }
 
-  if (*integral > MAX_INTEGRAL) *integral = MAX_INTEGRAL;
-  if (*integral < -MAX_INTEGRAL) *integral = -MAX_INTEGRAL;
+    // Compute derivative (only if dT > 0)
+    float derivative = (dTRight > 0) ? (errorVal - prevError) / dTRight : 0.0f;
 
+    // Integrate error with anti-windup clamping
+    integral += errorVal * dTRight;
+    if (integral > MAX_INTEGRAL) integral = MAX_INTEGRAL;
+    else if (integral < -MAX_INTEGRAL) integral = -MAX_INTEGRAL;
 
-  // Compute control output
-  float u_float = Kp * (*errorVal) + Kd * derivative + Ki * (*integral);
-  int u = (int) u_float; // Convert to integer
+    // Compute control signal
+    float u_float = Kp * errorVal + Kd * derivative + Ki * integral;
+    int u = (int)u_float;  // Convert to integer
 
-  // Determine motor direction
-  if (u > 0) {
-      pin1 = GPIO_PIN_SET;
-      pin2 = GPIO_PIN_RESET;
-  } else {
-      pin1 = GPIO_PIN_RESET;
-      pin2 = GPIO_PIN_SET;
-  }
+    // Store previous error for next cycle
+    prevError = errorVal;
 
-  // Apply motor control based on selection
-  if (right0Left1 == 1) {
-      HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, pin1);
-      HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, pin2);
-  } else {
-      HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, pin1);
-      HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, pin2);
-  }
+    // Set motor direction
+    HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, (u < 0) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, (u < 0) ? GPIO_PIN_RESET : GPIO_PIN_SET);
 
-  if (abs(u) > MAX_PWM_VAL) return MAX_PWM_VAL;
-  if (abs(u) < MIN_PWM_VAL) return 0;
-  return abs(u);
+    // Limit PWM output
+    u = abs(u);
+    if (u > MAX_PWM_VAL) return MAX_PWM_VAL;
+    if (u < MIN_PWM_VAL) return 0;
+
+    return (uint16_t)u;
 }
 
+uint16_t PID_Control_left() {
+    // PID gains (tune as needed)
+    const float Kp = 5.0f, Ki = 0.0f, Kd = 0.0f;
+    const float MAX_INTEGRAL = 10.0f;
+    const uint16_t MAX_PWM_VAL = 3000;  // Adjust as needed
+    const uint16_t MIN_PWM_VAL = 500;   // Adjust as needed
 
+    // Static variables for persistent error tracking
+    static int prevError = 0;
+    static float integral = 0.0f;
 
+    // Compute error
+    int errorVal = leftEncoderVal - leftTargetVal;
+
+    // If error is small, stop and ring buzzer
+    if (abs(errorVal) <= 200) {
+        ringBuzzer(10);
+        return 0;
+    }
+
+    // Compute derivative (only if dT > 0)
+    float derivative = (dTLeft > 0) ? (errorVal - prevError) / dTLeft : 0.0f;
+
+    // Integrate error with anti-windup clamping
+    integral += errorVal * dTLeft;
+    if (integral > MAX_INTEGRAL) integral = MAX_INTEGRAL;
+    else if (integral < -MAX_INTEGRAL) integral = -MAX_INTEGRAL;
+
+    // Compute control signal
+    float u_float = Kp * errorVal + Kd * derivative + Ki * integral;
+    int u = (int)u_float;  // Convert to integer
+
+    // Store previous error for next cycle
+    prevError = errorVal;
+
+    // Set motor direction
+    HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, (u < 0) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, (u < 0) ? GPIO_PIN_RESET : GPIO_PIN_SET);
+
+    // Limit PWM output
+    u = abs(u);
+    if (u > MAX_PWM_VAL) return MAX_PWM_VAL;
+    if (u < MIN_PWM_VAL) return 0;
+
+    return (uint16_t)u;
+}
 
 
 uint16_t ultrasonic()
@@ -1292,7 +1375,7 @@ void encoderRightTask(void *argument)
 			diff = 65536 - cnt_A;
 		  }
 		  else{
-				dirR =  1 // motor D is wired differently idk why;
+				dirR =  1; // motor D is wired differently idk why;
 				diff = cnt_A;
 		  }
 
@@ -1348,11 +1431,11 @@ void dcMotorTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, leftTargetVal);
-//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2,  PID_Control(1));
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, rightTargetVal);
-//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4,  PID_Control(0));
-	  osDelay(10);
+//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, leftTargetVal);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2,  PID_Control_left());
+//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, rightTargetVal);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4,  PID_Control_right());
+	  osDelay(25);
   }
   /* USER CODE END dcMotorTask */
 }
