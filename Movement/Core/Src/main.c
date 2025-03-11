@@ -66,9 +66,9 @@ const double COUNT_PER_CM = COUNT_PER_REV / WHEEL_CIRCUM;
 float dTRight, dTLeft;
 
 // REAR WHEELS ENCODER VARIABLES
-int32_t rightEncoderVal = 0, leftEncoderVal = 0;
-int32_t rightTargetVal = 4000, leftTargetVal = 4000;
-int32_t rightErrorVal = 0, leftErrorVal = 0;
+int16_t rightEncoderVal = 0, leftEncoderVal = 0;
+int16_t rightTargetVal = 2000, leftTargetVal = 2000;
+int16_t rightErrorVal = 0, leftErrorVal = 0;
 int32_t rightIntegral = 0, leftIntegral = 0;
 
 uint16_t ANGLE_TESTING_PHASE = 0;
@@ -754,7 +754,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, BIN1_Pin|BIN2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, BUZZER_Pin|DIN1_Pin|DIN2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, BUZZER_Pin|DIN2_Pin|DIN1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
@@ -775,8 +775,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : BUZZER_Pin DIN1_Pin DIN2_Pin */
-  GPIO_InitStruct.Pin = BUZZER_Pin|DIN1_Pin|DIN2_Pin;
+  /*Configure GPIO pins : BUZZER_Pin DIN2_Pin DIN1_Pin */
+  GPIO_InitStruct.Pin = BUZZER_Pin|DIN2_Pin|DIN1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -830,12 +830,6 @@ void moveBackward(uint8_t distance_in_cm) {
 	leftTargetVal = rightTargetVal = targetTicks;
 
     // for debug
-    sprintf(buf, "rT = %5d", rightTargetVal);
-    OLED_ShowString(10, 40, buf);
-  
-    sprintf(buf, "lT= %5d", leftTargetVal);
-    OLED_ShowString(10, 50, buf);
-    OLED_Refresh_Gram();
 
 	pwmVal_servo = SERVO_STRAIGHT;
 }
@@ -891,12 +885,12 @@ void moveRightBackward(uint16_t angle) {
 
 uint16_t PID_Control(uint8_t right0Left1) {
   // PID gains
-  const float Kp = 0.5, Ki = 0.0, Kd = 0.0;
+  const float Kp = 0.3, Ki = 0.2, Kd = 1.2;
   float derivative;
   float MAX_INTEGRAL = 10;
   
   uint16_t MAX_PWM_VAL = 3000; // adjust
-  uint16_t MIN_PWM_VAL = 400; // adjust
+  uint16_t MIN_PWM_VAL = 500; // adjust
   
   // Select variables based on right0Left1 flag
   float dT = (right0Left1 == 1) ? dTLeft : dTRight;
@@ -937,15 +931,15 @@ uint16_t PID_Control(uint8_t right0Left1) {
 
   // Apply motor control based on selection
   if (right0Left1 == 1) {
-      HAL_GPIO_WritePin(GPIOA, DIN2_Pin, pin1);
-      HAL_GPIO_WritePin(GPIOA, DIN1_Pin, pin2);
+      HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, pin1);
+      HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, pin2);
   } else {
-      HAL_GPIO_WritePin(GPIOA, BIN2_Pin, pin1);
-      HAL_GPIO_WritePin(GPIOA, BIN1_Pin, pin2);
+      HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, pin1);
+      HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, pin2);
   }
 
   if (abs(u) > MAX_PWM_VAL) return MAX_PWM_VAL;
-  if (abs(u) < MIN_PWM_VAL) return MIN_PWM_VAL;
+  if (abs(u) < MIN_PWM_VAL) return 0;
   return abs(u);
 }
 
@@ -1240,21 +1234,21 @@ void encoderLeftTask(void *argument)
 	  if (HAL_GetTick() - tick > 10L){ // 10ms delay, adjust accordingly
 		  dTLeft =  (HAL_GetTick() - tick) / 1000;
 		  cnt_B = __HAL_TIM_GET_COUNTER(htim);
-		  if (__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
-			  dirL = -1;
-			  diff = 65535 - cnt_B;
+		  if (!__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
+			  dirL = 1;
+			  diff = 65536 - cnt_B;
 		  }
 		  else{
-				dirL = 1;
+				dirL = -1;
 				diff = cnt_B;
 		  }
 
 		  if(dirL == 1){
-			  leftEncoderVal += (int32_t)diff;
+			  leftEncoderVal += (int16_t)diff;
 		  }
 
 		  else{
-			  leftEncoderVal -= (int32_t)diff;
+			  leftEncoderVal -= (int16_t)diff;
 		  }
 		  __HAL_TIM_SET_COUNTER(htim, 0);
 
@@ -1278,7 +1272,7 @@ void encoderLeftTask(void *argument)
 void encoderRightTask(void *argument)
 {
   /* USER CODE BEGIN encoderRightTask */
-	// using motor A
+	// using motor D
 	TIM_HandleTypeDef *htim = &htim2;
 	HAL_TIM_Encoder_Start(htim,TIM_CHANNEL_ALL);
 	int16_t cnt_A;
@@ -1293,21 +1287,21 @@ void encoderRightTask(void *argument)
 	  if (HAL_GetTick() - tick > 10L){ // 10ms delay, adjust accordingly
 		  dTRight = (HAL_GetTick() - tick) / 1000;
 		  cnt_A = __HAL_TIM_GET_COUNTER(htim);
-		  if (__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
+		  if (!__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
 			dirR = -1;
-			diff = 65535 - cnt_A;
+			diff = 65536 - cnt_A;
 		  }
 		  else{
-				dirR = 1;
+				dirR =  1 // motor D is wired differently idk why;
 				diff = cnt_A;
 		  }
 
 		  if(dirR == 1){
-			  rightEncoderVal += (int32_t)diff;
+			  rightEncoderVal += (int16_t)diff;
 		  }
 
 		  else{
-			  rightEncoderVal -= (int32_t)diff;
+			  rightEncoderVal -= (int16_t)diff;
 		  }
 		  __HAL_TIM_SET_COUNTER(htim, 0);
 
@@ -1354,8 +1348,10 @@ void dcMotorTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, PID_Control(1));
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, PID_Control(0));
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, leftTargetVal);
+//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2,  PID_Control(1));
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, rightTargetVal);
+//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4,  PID_Control(0));
 	  osDelay(10);
   }
   /* USER CODE END dcMotorTask */
@@ -1370,7 +1366,6 @@ void dcMotorTask(void *argument)
 /* USER CODE END Header_oledTask1 */
 void oledTask1(void *argument)
 {
-
   /* USER CODE BEGIN oledTask1 */
 	uint8_t  buf [20];
   /* Infinite loop */
