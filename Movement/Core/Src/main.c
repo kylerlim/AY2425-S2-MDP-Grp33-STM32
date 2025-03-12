@@ -39,45 +39,39 @@
 
 // SERVO-MOTOR
 uint16_t SERVO_STRAIGHT = 146;
-uint16_t SERVO_LEFT = 72;
-uint16_t SERVO_RIGHT = 200; // original at 220, Right turn has a handicap
+uint16_t SERVO_LEFT = 100;
+uint16_t SERVO_RIGHT = 200; // change it to achieve TURNING RADIUS of 27
+//uint16_t SERVO_RIGHT = 200; // TURNING RADIUS is 23.35 atm
 uint16_t pwmVal_servo;
-const double TURNING_RADIUS = 27; // TO FIND OUT AGAIN, based on SERVO_L/R
+const double TURNING_RADIUS = 235; // TO FIND OUT AGAIN, based on SERVO_L/R
+//70cm diameter for Right taking middle
 const double WHEELBASE = 16.8; // TO FIND OUT AGAIN, separation between two back wheels
 
 
-// hard-code TO-DELETE
-uint16_t DC_RIGHT = 2100;
-uint16_t DC_LEFT = 1670;
-//
-
 // PID-controlled DC Motors
-#define COUNT_PER_REV 1320  // Quadrature-encoded pulses per wheel revolution
+//#define COUNT_PER_REV 1320  // Quadrature-encoded pulses per wheel revolution
+// check if need change again - do the measurements
+#define COUNT_PER_REV 1560
+//1544 right 1576 left
+
 
 const double PI = 3.141592653;
-const double WHEEL_DIAMETER = 6.5;  // cm
+const double WHEEL_DIAMETER = 6.5;  // in cm
 const double WHEEL_CIRCUM = WHEEL_DIAMETER * PI;
 const double COUNT_PER_CM = COUNT_PER_REV / WHEEL_CIRCUM;
-
-
-
+uint16_t pwmVal_Left, pwmVal_Right = 0;
 
 // PID variables
 float dTRight, dTLeft;
 
 // REAR WHEELS ENCODER VARIABLES
 int16_t rightEncoderVal = 0, leftEncoderVal = 0;
-int16_t rightTargetVal = 4000, leftTargetVal = 4000;
+//int16_t rightTargetVal = 4000, leftTargetVal = 4000; // should be 0 when running/testing the code
+int16_t rightTargetVal = 0, leftTargetVal = 0;
 int16_t rightErrorVal = 0, leftErrorVal = 0;
 int32_t rightIntegral = 0, leftIntegral = 0;
 
-uint16_t ANGLE_TESTING_PHASE = 0;
-
-int e_brake = 0;
-int times_acceptable = 0;
-volatile int user_distance = 0;
 int readyToExecute = 0;
-
 
 // Ultrasonic sensor declarations
 uint16_t echo = 0;       // To hold the echo pulse width in microseconds
@@ -736,8 +730,8 @@ static void MX_USART3_UART_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+  /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
@@ -789,8 +783,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Trigger_GPIO_Port, &GPIO_InitStruct);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -811,15 +805,17 @@ void ringBuzzer(int period){
 // NEW DRIVEFORWARD
 void moveForward(uint8_t distance_in_cm) {
 
-  char buf[20]; // for debug
+	char buf[20]; // for debug
 
 	int32_t targetTicks = (int32_t) (distance_in_cm * COUNT_PER_CM);
 	leftTargetVal = rightTargetVal = targetTicks;
+//	leftTargetVal = targetTicks;
+//	rightTargetVal = targetTicks;
 
-  // for debug
+	// for debug
 
-//  OLED_Refresh_Gram();
-pwmVal_servo = SERVO_STRAIGHT;
+	//  OLED_Refresh_Gram();
+	pwmVal_servo = SERVO_STRAIGHT;
 }
 
 void moveBackward(uint8_t distance_in_cm) {
@@ -827,6 +823,9 @@ void moveBackward(uint8_t distance_in_cm) {
 
 	int32_t targetTicks = (int32_t) - 1 * (distance_in_cm * COUNT_PER_CM);
 	leftTargetVal = rightTargetVal = targetTicks;
+//	int32_t targetTicks = (int32_t) (distance_in_cm * COUNT_PER_CM);
+//	leftTargetVal -= targetTicks;
+//	rightTargetVal -= targetTicks;
 
     // for debug
 
@@ -840,8 +839,8 @@ void moveLeftForward(uint16_t angle) {
     int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
     int32_t innerTicks = (int32_t)(innerArc * COUNT_PER_CM);
 
-    leftEncoderVal = innerTicks;   // Inner wheel moves less
-    rightEncoderVal = outerTicks;  // Outer wheel moves more
+    leftTargetVal = innerTicks;   // Inner wheel moves less
+    rightTargetVal = outerTicks;  // Outer wheel moves more
     pwmVal_servo = SERVO_LEFT;
 }
 
@@ -852,8 +851,8 @@ void moveLeftBackward(uint16_t angle) {
     int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
     int32_t innerTicks = (int32_t)(innerArc * COUNT_PER_CM);
 
-    leftEncoderVal = -innerTicks;   // Reverse movement
-    rightEncoderVal = -outerTicks;
+    leftTargetVal = -innerTicks;   // Reverse movement
+    rightTargetVal = -outerTicks;
     pwmVal_servo = SERVO_LEFT;
 }
 
@@ -864,8 +863,8 @@ void moveRightForward(uint16_t angle) {
     int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
     int32_t innerTicks = (int32_t)(innerArc * COUNT_PER_CM);
 
-    leftEncoderVal = outerTicks;   // Outer wheel moves more
-    rightEncoderVal = innerTicks;  // Inner wheel moves less
+    leftTargetVal = outerTicks;   // Outer wheel moves more
+    rightTargetVal = innerTicks;  // Inner wheel moves less
     pwmVal_servo = SERVO_RIGHT;
 }
 
@@ -876,16 +875,18 @@ void moveRightBackward(uint16_t angle) {
     int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
     int32_t innerTicks = (int32_t)(innerArc * COUNT_PER_CM);
 
-    leftEncoderVal = -outerTicks;  // Reverse movement
-    rightEncoderVal = -innerTicks;
+    leftTargetVal = -outerTicks;  // Reverse movement
+    rightTargetVal = -innerTicks;
     pwmVal_servo = SERVO_RIGHT;
 }
 
 uint16_t PID_Control_right() {
     // PID gains (tune as needed)
-    const float Kp = 35.0f, Ki = 0.0f, Kd = 3.0f;
+//    const float Kp = 35.0f, Ki = 0.0f, Kd = 3.0f; // configured based on 5V
+	const float Kp = 4.0f, Ki = 0.01f, Kd = 2.0f; // testing 12V Power Supply
     const float MAX_INTEGRAL = 10.0f;
-    const uint16_t MAX_PWM_VAL = 3000;  // Adjust as needed
+    // 2000 achieves 20cm/s
+    const uint16_t MAX_PWM_VAL = 1800;  // Adjust as needed
     const uint16_t MIN_PWM_VAL = 500;   // Adjust as needed
 
     // Static variables for persistent error tracking
@@ -919,14 +920,16 @@ uint16_t PID_Control_right() {
     if (u > MAX_PWM_VAL) return MAX_PWM_VAL;
     if (u < MIN_PWM_VAL) return 0;
 
-    return (uint16_t)u;
+    return (uint16_t)u; // return pwm value
 }
 
 uint16_t PID_Control_left() {
     // PID gains (tune as needed)
-    const float Kp = 20.0f, Ki = 0.0f, Kd = 4.0f;
+//    const float Kp = 20.0f, Ki = 0.0f, Kd = 4.0f; // configured based on 5V
+    const float Kp = 2.5f, Ki = 0.01f, Kd = 0.5f; // testing 12V Power Supply
     const float MAX_INTEGRAL = 10.0f;
-    const uint16_t MAX_PWM_VAL = 3000;  // Adjust as needed
+    // 2000 achieves 20cm/s
+    const uint16_t MAX_PWM_VAL = 1800;  // Adjust as needed
     const uint16_t MIN_PWM_VAL = 500;   // Adjust as needed
 
     // Static variables for persistent error tracking
@@ -952,15 +955,15 @@ uint16_t PID_Control_left() {
     prevError = errorVal;
 
     // Set motor direction
-    HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, (u < 0) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, (u < 0) ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, (u < 0) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, (u < 0) ? GPIO_PIN_RESET : GPIO_PIN_SET);
 
     // Limit PWM output
     u = abs(u);
     if (u > MAX_PWM_VAL) return MAX_PWM_VAL;
     if (u < MIN_PWM_VAL) return 0;
 
-    return (uint16_t)u;
+    return (uint16_t)u; // return pwm value
 }
 
 
@@ -1079,9 +1082,31 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 }
 
 void acknowledgeCompletion(){
-  uint8_t reply [3] = "OK\0";
+  uint8_t reply [2] = "OK";
   HAL_UART_Transmit(&huart1, (uint8_t *) reply, 2, 0xFFFF);
   readyToExecute = 0;
+}
+
+int isCarMoving(){
+/* Checks if car is moving
+ * if car has stopped it means it is
+ * ready to receive next command
+ * returns true if car is moving
+ * if car stopped return false
+*/
+  if (pwmVal_Left == 0 && pwmVal_Right == 0){
+	  ringBuzzer(5000);
+//	  HAL_UART_Receive_IT(&huart1, aRxBuffer, CMD_MAX_LENGTH);
+	  return 0;
+  }
+  return 1;
+}
+
+void resetEncoderState(void) {
+    leftEncoderVal = 0;
+    rightEncoderVal = 0;
+    leftTargetVal = 0;
+    rightTargetVal = 0;
 }
 
 /* USER CODE END 4 */
@@ -1096,18 +1121,6 @@ void acknowledgeCompletion(){
 void USART1Receive(void *argument)
 {
   /* USER CODE BEGIN 5 */
-//	char ch = 'A';
-//	char old = ')';
-//	uint8_t debugMsg[20] = "hello\0";
-
-
-//	int signMagnitude = 1;
-		  /* Infinite loop */
-	//		  aRxBuffer[0] = '-';
-	//		  aRxBuffer[1] = 'W';
-	//		  aRxBuffer[2] = 'A';
-	//		  aRxBuffer[3] = 'I';
-	//		  aRxBuffer[4] = 'T';
 		  for(;;)
 		  {
 			  magnitude = 0;
@@ -1117,63 +1130,49 @@ void USART1Receive(void *argument)
 			  key = aRxBuffer[0];
 			  direction = aRxBuffer[1];
 			  magnitude = ((int)(((int)aRxBuffer[2])-48)*100) + ((int)(((int)aRxBuffer[3])-48)*10) + ((int)(((int)aRxBuffer[4])-48));
-//			  signMagnitude = 1;
 
 
+			  // ignore all other commands
+//			  if (aRxBuffer[1] < '0' || aRxBuffer[1] > '9') aRxBuffer[1] = '0';
+//			  if (aRxBuffer[2] < '0' || aRxBuffer[2] > '9') aRxBuffer[2] = '0';
+//			  if (aRxBuffer[3] < '0' || aRxBuffer[3] > '9') aRxBuffer[3] = '0';
+//			  if (aRxBuffer[4] < '0' || aRxBuffer[4] > '9') aRxBuffer[4] = '0';
 
-	//		  if(direction == 'B' || direction == 'b'){
-	//			  magnitude *= (int)-1;
-	//			  signMagnitude = -1;
-	//		  }
-
-			  //if(aRxBuffer[0] != old){
-	//			if (aRxBuffer[0]!='D' & aRxBuffer[4]!='!'){
 			  if (readyToExecute == 1){
-	//				old_Buff1[0] = old_Buff[0];
-	//				old_Buff1[1] = old_Buff[1];
-	//				old_Buff1[2] = old_Buff[2];
-	//				old_Buff1[3] = old_Buff[3];
-	//				old_Buff1[4] = old_Buff[4];
-	//			old_Buff[0] = aRxBuffer[0];
-	//			old_Buff[1] = aRxBuffer[1];
-	//			old_Buff[2] = aRxBuffer[2];
-	//			old_Buff[3] = aRxBuffer[3];
-	//			old_Buff[4] = aRxBuffer[4];
-
-				//}
-
-				 //osDelay(500); //og 2000 delay
-
 				  switch (key){
 					  case 'D':
 						  break;
 					  case 'S':
-						  times_acceptable=0;
+//						  times_acceptable=0;
 						  moveForward((uint16_t)magnitude);
+						  while(isCarMoving());
 						  flagDone=1;
 						  osDelay(10); //og 100
 						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'B':
-						  times_acceptable=0;
+//						  times_acceptable=0;
 						  moveBackward((uint16_t)magnitude);
+						  while(isCarMoving());
 						  flagDone=1;
 						  osDelay(10); //og 100
 						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'R':
-						  times_acceptable=0;
+//						  times_acceptable=0;
 						  moveRightForward((uint16_t) magnitude);
+						  while(isCarMoving());
 						  flagDone=1;
 						  osDelay(10); //og 100
 						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'L':
-						  times_acceptable=0;
+//						  times_acceptable=0;
 						  moveLeftForward((uint16_t) magnitude);
+						  while(isCarMoving());
 						  flagDone=1;
 						  osDelay(10); //og 100
 						  ringBuzzer(10); // for debug
@@ -1181,23 +1180,25 @@ void USART1Receive(void *argument)
 
             
 					  case 'W':
-						  times_acceptable=0;
+//						  times_acceptable=0;
 						  moveRightBackward((uint16_t) magnitude);
+						  while(isCarMoving());
 						  flagDone=1;
 						  osDelay(10); //og 100
 						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'V':
-						  times_acceptable=0;
+//						  times_acceptable=0;
 						  moveLeftBackward((uint16_t) magnitude);
+						  while(isCarMoving());
 						  flagDone=1;
 						  osDelay(10); //og 100
 						  ringBuzzer(10); // for debug
 						  break;
 
 					  case '-':
-						  times_acceptable=0;
+//						  times_acceptable=0;
 //						  stopCar();
 						  flagDone=1;
 	//					  aRxBuffer[0] = '-';
@@ -1218,7 +1219,10 @@ void USART1Receive(void *argument)
 					acknowledgeCompletion();
 					osDelay(50); //og 500
 					flagDone = 0;
+					// uncommenting this will cause the car not to move at all cause it doesnt have time to execute the command
+					leftTargetVal = 0, rightTargetVal = 0;
 					rightEncoderVal = 0, leftEncoderVal = 0;
+//					resetEncoderState();
 				}
 				//flagRead = 0;
 				osDelay(1);
@@ -1248,8 +1252,7 @@ void encoderLeftTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-
-	  if (HAL_GetTick() - tick > 10L){ // 10ms delay, adjust accordingly
+	  if (HAL_GetTick() - tick > 10L){ // 10ms delay, adjust accordingly or 100Hz atm
 		  dTLeft =  (HAL_GetTick() - tick) / 1000;
 		  cnt_B = __HAL_TIM_GET_COUNTER(htim);
 		  if (!__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
@@ -1302,7 +1305,7 @@ void encoderRightTask(void *argument)
   for(;;)
   {
 
-	  if (HAL_GetTick() - tick > 10L){ // 10ms delay, adjust accordingly
+	  if (HAL_GetTick() - tick > 10L){ // 10ms delay, adjust accordingly or 100Hz atm
 		  dTRight = (HAL_GetTick() - tick) / 1000;
 		  cnt_A = __HAL_TIM_GET_COUNTER(htim);
 		  if (!__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
@@ -1366,13 +1369,22 @@ void dcMotorTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+    // add the pwm IF statement
+	  pwmVal_Left = PID_Control_left();
+	  pwmVal_Right = PID_Control_right();
+	  if (pwmVal_Left < 400) pwmVal_Left = 0;
+	  if (pwmVal_Right < 400) pwmVal_Right = 0;
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal_Left);
+	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, pwmVal_Right);
+
+
 //	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, leftTargetVal);
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2,  PID_Control_left());
+//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, PID_Control_left());
 //	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, rightTargetVal);
-	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4,  PID_Control_right());
+//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, PID_Control_right());
 
 	  htim1.Instance->CCR4 = pwmVal_servo;
-	  osDelay(25);
+	  osDelay(25); // adjust the frequency here
   }
   /* USER CODE END dcMotorTask */
 }
@@ -1387,7 +1399,7 @@ void dcMotorTask(void *argument)
 void oledTask1(void *argument)
 {
   /* USER CODE BEGIN oledTask1 */
-	uint8_t  buf [20];
+	uint8_t buf [20];
   /* Infinite loop */
   for(;;)
   {
@@ -1397,18 +1409,17 @@ void oledTask1(void *argument)
 	  sprintf(buf, "rC = %5d", rightEncoderVal);
 	  OLED_ShowString(10, 20, buf);
 
+	  sprintf(buf, "cmd= %s", aRxBuffer);
+	  OLED_ShowString(10, 30, buf);
+
 	  sprintf(buf, "rT= %5d", rightTargetVal);
 	  OLED_ShowString(10, 40, buf);
 
 	  sprintf(buf, "lT= %5d", leftTargetVal);
 	  OLED_ShowString(10, 50, buf);
-
-
-
-
 	  OLED_Refresh_Gram();
 
-    osDelay(100);
+	  osDelay(100);
   }
   /* USER CODE END oledTask1 */
 }
