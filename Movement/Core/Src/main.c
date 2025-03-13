@@ -78,6 +78,11 @@ int16_t rightEncoderVal = 0, leftEncoderVal = 0;
 int16_t rightTargetVal = 0, leftTargetVal = 0;
 int16_t rightErrorVal = 0, leftErrorVal = 0;
 int32_t rightIntegral = 0, leftIntegral = 0;
+double servoErrorVal = 0;
+double servoIntegral = 0;
+double servoPreviousError = 0;
+
+int16_t target_angle, current_angle;
 
 int readyToExecute = 0;
 
@@ -140,6 +145,13 @@ const osThreadAttr_t oledTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
+/* Definitions for gyroscope */
+osThreadId_t gyroscopeHandle;
+const osThreadAttr_t gyroscope_attributes = {
+  .name = "gyroscope",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* USER CODE BEGIN PV */
 uint8_t task1 [30] = "Task1";
 uint8_t task2 [30] = "Task2";
@@ -162,6 +174,7 @@ void encoderLeftTask(void *argument);
 void encoderRightTask(void *argument);
 void dcMotorTask(void *argument);
 void oledTask1(void *argument);
+void gyroTask1(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -264,6 +277,9 @@ int main(void)
 
   /* creation of oledTask */
   oledTaskHandle = osThreadNew(oledTask1, NULL, &oledTask_attributes);
+
+  /* creation of gyroscope */
+  gyroscopeHandle = osThreadNew(gyroTask1, NULL, &gyroscope_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -857,6 +873,7 @@ void moveForward(uint8_t distance_in_cm) {
 	leftTargetVal = targetTicks;
 	rightTargetVal = targetTicks;
 	pwmVal_servo = SERVO_STRAIGHT;
+	target_angle += 0;
 
 }
 
@@ -867,6 +884,7 @@ void moveBackward(uint8_t distance_in_cm) {
 	leftTargetVal = targetTicks;
 	rightTargetVal = targetTicks;
 	pwmVal_servo = SERVO_STRAIGHT;
+	target_angle += 0;
 
 }
 
@@ -881,6 +899,8 @@ void moveLeftForward(uint16_t angle) {
     rightTargetVal = outerTicks;  // Outer wheel moves more
     pwmVal_servo = SERVO_LEFT;
 
+    target_angle += angle;
+
 }
 
 void moveLeftBackward(uint16_t angle) {
@@ -894,6 +914,7 @@ void moveLeftBackward(uint16_t angle) {
     rightTargetVal = -outerTicks;
     pwmVal_servo = SERVO_LEFT;
 
+    target_angle -= angle;
 }
 
 void moveRightForward(uint16_t angle) {
@@ -907,6 +928,8 @@ void moveRightForward(uint16_t angle) {
     rightTargetVal = innerTicks;  // Inner wheel moves less
     pwmVal_servo = SERVO_RIGHT;
 
+    target_angle -= angle;
+
 }
 
 void moveRightBackward(uint16_t angle) {
@@ -919,6 +942,8 @@ void moveRightBackward(uint16_t angle) {
     leftTargetVal = -outerTicks;  // Reverse movement
     rightTargetVal = -innerTicks;
     pwmVal_servo = SERVO_RIGHT;
+
+    target_angle += angle;
 
 }
 
@@ -1006,6 +1031,37 @@ uint16_t PID_Control_left() {
     if (u < MIN_PWM_VAL) return 0;
 
     return (uint16_t)u; // return pwm value
+}
+
+//uint16_t PID_Control_Servo(double target_angle, double current_angle) {
+uint16_t PID_Control_Servo() {
+
+    servoErrorVal = target_angle - current_angle;
+
+    // Accumulate Integral (Limit to prevent wind-up)
+
+    float Kp = 2.0f, Ki = 0.0f, Kd = 0.0f;
+    servoIntegral += servoErrorVal;
+    if (servoIntegral > 1000) servoIntegral = 1000;
+    if (servoIntegral < -1000) servoIntegral = -1000;
+
+    // Derivative Term
+    double derivative = servoErrorVal - servoPreviousError;
+
+    // Compute PID output
+    double pid_output = (Kp * servoErrorVal) + (Ki * servoIntegral) + (Kd * derivative);
+
+    // Adjust Servo PWM based on PID output
+    uint16_t servoPWM = SERVO_STRAIGHT + (int16_t)pid_output;
+
+    // Constrain the PWM value within bounds
+    if (servoPWM > SERVO_RIGHT) servoPWM = SERVO_RIGHT;
+    if (servoPWM < SERVO_LEFT)  servoPWM = SERVO_LEFT;
+
+    // Update Previous Error for Next Iteration
+    servoPreviousError = servoErrorVal;
+
+    return servoPWM;
 }
 
 
@@ -1422,20 +1478,23 @@ void dcMotorTask(void *argument)
 
 	  pwmVal_servo = SERVO_STRAIGHT;
 	  oldPwmVal_Servo = pwmVal_servo;
+
+	  int delay = 0;
   /* Infinite loop */
   for(;;)
   {
     // add the pwm IF statement
 
-	  if (pwmVal_servo != oldPwmVal_Servo){
+	  pwmVal_servo = PID_Control_Servo();
+
+	  if (abs(pwmVal_servo -oldPwmVal_Servo) > 10) delay = 1;
+
+	  if (delay == 1){
 		  oldPwmVal_Servo = pwmVal_servo;
 		  htim1.Instance->CCR4 = pwmVal_servo;
-		  ringBuzzer(10);
-		  ringBuzzer(10);
-		  ringBuzzer(10);
-		  osDelay(500);
+		  osDelay(100);
+		  delay = 0;
 	  }
-
 
 
 	  pwmVal_Left = PID_Control_left();
@@ -1483,6 +1542,56 @@ void oledTask1(void *argument)
 	  osDelay(100);
   }
   /* USER CODE END oledTask1 */
+}
+
+/* USER CODE BEGIN Header_gyroTask1 */
+/**
+* @brief Function implementing the gyroscope thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_gyroTask1 */
+void gyroTask1(void *argument)
+{
+  /* USER CODE BEGIN gyroTask1 */
+      gyroInit();
+	  uint8_t val[2] = {0, 0};
+	  int16_t angular_speed = 0;
+	  uint32_t tick = HAL_GetTick();
+	  double offset = 0;
+	  double trash = 0;
+	  int i = 0;
+
+	  // Calibration Phase (Runs once at startup)
+	  for (i = 0; i < 100; i++) {
+	    osDelay(50);
+	    readByte(0x37, val);
+	    angular_speed = (val[0] << 8) | val[1];
+	    trash += (double)((double)angular_speed) * ((HAL_GetTick() - tick) / 16400.0);
+	    offset += angular_speed;
+	    tick = HAL_GetTick();
+	  }
+
+	  offset = offset / i;  // Calculate gyroscope bias (average offset)
+
+	  tick = HAL_GetTick();  // Reset tick after calibration
+
+	  // Infinite Loop
+	  for(;;) {
+	    osDelay(50);
+
+	    readByte(0x37, val);
+	    angular_speed = (val[0] << 8) | val[1];
+
+	    // Subtract gyroscope bias from measurement
+	    total_angle += (double)((double)angular_speed - offset) * ((HAL_GetTick() - tick) / 16400.0);
+
+	    tick = HAL_GetTick();  // Update tick after reading
+
+	    // Update Servo PID Control
+	    pwmVal_servo = PID_Control_Servo();
+	  }
+  /* USER CODE END gyroTask1 */
 }
 
 /**
