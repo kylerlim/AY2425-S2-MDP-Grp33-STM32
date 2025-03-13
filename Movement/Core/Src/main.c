@@ -39,11 +39,11 @@
 
 // SERVO-MOTOR
 uint16_t SERVO_STRAIGHT = 146;
-uint16_t SERVO_LEFT = 100;
-uint16_t SERVO_RIGHT = 200; // change it to achieve TURNING RADIUS of 27
-//uint16_t SERVO_RIGHT = 200; // TURNING RADIUS is 23.35 atm
+uint16_t SERVO_LEFT = 105; //64cm for 100
+uint16_t SERVO_RIGHT = 201; // change it to achieve TURNING RADIUS of 27
+//uint16_t SERVO_RIGHT = 220; // TURNING RADIUS is 23.35 atm
 uint16_t pwmVal_servo;
-const double TURNING_RADIUS = 235; // TO FIND OUT AGAIN, based on SERVO_L/R
+const double TURNING_RADIUS = 35; // TO FIND OUT AGAIN, based on SERVO_L/R
 //70cm diameter for Right taking middle
 const double WHEELBASE = 16.8; // TO FIND OUT AGAIN, separation between two back wheels
 
@@ -1095,19 +1095,24 @@ int isCarMoving(){
  * if car stopped return false
 */
   if (pwmVal_Left == 0 && pwmVal_Right == 0){
-	  ringBuzzer(5000);
-//	  HAL_UART_Receive_IT(&huart1, aRxBuffer, CMD_MAX_LENGTH);
+//	  ringBuzzer(200);
+//		leftTargetVal = 0;
+//		leftEncoderVal = 0;
+//
+//		rightEncoderVal = 0;
+//		rightTargetVal  = 0;
+	  HAL_UART_Receive_IT(&huart1, aRxBuffer, CMD_MAX_LENGTH);
 	  return 0;
   }
   return 1;
 }
 
-void resetEncoderState(void) {
-    leftEncoderVal = 0;
-    rightEncoderVal = 0;
-    leftTargetVal = 0;
-    rightTargetVal = 0;
-}
+//void resetEncoderState(void) {
+//    leftEncoderVal = 0;
+//    rightEncoderVal = 0;
+//    leftTargetVal = 0;
+//    rightTargetVal = 0;
+//}
 
 /* USER CODE END 4 */
 
@@ -1145,56 +1150,56 @@ void USART1Receive(void *argument)
 					  case 'S':
 //						  times_acceptable=0;
 						  moveForward((uint16_t)magnitude);
+						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-						  osDelay(10); //og 100
-						  ringBuzzer(10); // for debug
+//						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'B':
 //						  times_acceptable=0;
 						  moveBackward((uint16_t)magnitude);
+						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-						  osDelay(10); //og 100
-						  ringBuzzer(10); // for debug
+//						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'R':
 //						  times_acceptable=0;
 						  moveRightForward((uint16_t) magnitude);
+						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-						  osDelay(10); //og 100
-						  ringBuzzer(10); // for debug
+//						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'L':
 //						  times_acceptable=0;
 						  moveLeftForward((uint16_t) magnitude);
+						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-						  osDelay(10); //og 100
-						  ringBuzzer(10); // for debug
+//						  ringBuzzer(10); // for debug
 						  break;
 
             
 					  case 'W':
 //						  times_acceptable=0;
 						  moveRightBackward((uint16_t) magnitude);
+						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-						  osDelay(10); //og 100
-						  ringBuzzer(10); // for debug
+//						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'V':
 //						  times_acceptable=0;
 						  moveLeftBackward((uint16_t) magnitude);
+						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-						  osDelay(10); //og 100
-						  ringBuzzer(10); // for debug
+//						  ringBuzzer(10); // for debug
 						  break;
 
 					  case '-':
@@ -1220,8 +1225,12 @@ void USART1Receive(void *argument)
 					osDelay(50); //og 500
 					flagDone = 0;
 					// uncommenting this will cause the car not to move at all cause it doesnt have time to execute the command
-					leftTargetVal = 0, rightTargetVal = 0;
-					rightEncoderVal = 0, leftEncoderVal = 0;
+					leftTargetVal = 0;
+					leftEncoderVal = 0;
+
+					rightEncoderVal = 0;
+					rightTargetVal  = 0;
+
 //					resetEncoderState();
 				}
 				//flagRead = 0;
@@ -1372,8 +1381,8 @@ void dcMotorTask(void *argument)
     // add the pwm IF statement
 	  pwmVal_Left = PID_Control_left();
 	  pwmVal_Right = PID_Control_right();
-	  if (pwmVal_Left < 400) pwmVal_Left = 0;
-	  if (pwmVal_Right < 400) pwmVal_Right = 0;
+//	  if (pwmVal_Left < 400) pwmVal_Left = 0;
+//	  if (pwmVal_Right < 400) pwmVal_Right = 0;
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal_Left);
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, pwmVal_Right);
 
