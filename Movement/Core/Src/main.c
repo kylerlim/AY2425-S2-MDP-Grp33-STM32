@@ -38,12 +38,12 @@
 
 
 // SERVO-MOTOR
-uint16_t SERVO_STRAIGHT = 142;
+uint16_t SERVO_STRAIGHT = 148;
 //uint16_t SERVO_LEFT = 105; // the turning rad is too small, need to increase to make it turn wider
-uint16_t SERVO_LEFT = 109; // 64cm for 100
+uint16_t SERVO_LEFT = 106; // 64cm for 100
 uint16_t SERVO_RIGHT = 201; // change it to achieve TURNING RADIUS of 27
 //uint16_t SERVO_RIGHT = 220; // TURNING RADIUS is 23.35 atm
-uint16_t pwmVal_servo;
+uint16_t pwmVal_servo, oldPwmVal_Servo;
 const double TURNING_RADIUS = 35; // TO FIND OUT AGAIN, based on SERVO_L/R
 //70cm diameter for Right taking middle
 const double WHEELBASE = 16.8; // TO FIND OUT AGAIN, separation between two back wheels
@@ -66,6 +66,12 @@ volatile int leftDiff = 0, rightDiff = 0;
 // PID variables
 float dTRight, dTLeft;
 
+// Gyro
+double total_angle=0;
+uint8_t gyroBuffer[20];
+uint8_t ICMAddress = 0x68;
+
+
 // REAR WHEELS ENCODER VARIABLES
 int16_t rightEncoderVal = 0, leftEncoderVal = 0;
 //int16_t rightTargetVal = 4000, leftTargetVal = 4000; // should be 0 when running/testing the code
@@ -87,6 +93,8 @@ uint8_t Is_First_Captured = 0;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
@@ -148,6 +156,7 @@ static void MX_TIM6_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_I2C1_Init(void);
 void USART1Receive(void *argument);
 void encoderLeftTask(void *argument);
 void encoderRightTask(void *argument);
@@ -211,6 +220,7 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
 
@@ -320,6 +330,40 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
 }
 
 /**
@@ -813,7 +857,7 @@ void moveForward(uint8_t distance_in_cm) {
 	leftTargetVal = targetTicks;
 	rightTargetVal = targetTicks;
 	pwmVal_servo = SERVO_STRAIGHT;
-	start = 1;
+
 }
 
 void moveBackward(uint8_t distance_in_cm) {
@@ -823,7 +867,7 @@ void moveBackward(uint8_t distance_in_cm) {
 	leftTargetVal = targetTicks;
 	rightTargetVal = targetTicks;
 	pwmVal_servo = SERVO_STRAIGHT;
-	start = 1;
+
 }
 
 void moveLeftForward(uint16_t angle) {
@@ -836,6 +880,7 @@ void moveLeftForward(uint16_t angle) {
     leftTargetVal = innerTicks;   // Inner wheel moves less
     rightTargetVal = outerTicks;  // Outer wheel moves more
     pwmVal_servo = SERVO_LEFT;
+
 }
 
 void moveLeftBackward(uint16_t angle) {
@@ -848,6 +893,7 @@ void moveLeftBackward(uint16_t angle) {
     leftTargetVal = -innerTicks;   // Reverse movement
     rightTargetVal = -outerTicks;
     pwmVal_servo = SERVO_LEFT;
+
 }
 
 void moveRightForward(uint16_t angle) {
@@ -860,6 +906,7 @@ void moveRightForward(uint16_t angle) {
     leftTargetVal = outerTicks;   // Outer wheel moves more
     rightTargetVal = innerTicks;  // Inner wheel moves less
     pwmVal_servo = SERVO_RIGHT;
+
 }
 
 void moveRightBackward(uint16_t angle) {
@@ -872,6 +919,7 @@ void moveRightBackward(uint16_t angle) {
     leftTargetVal = -outerTicks;  // Reverse movement
     rightTargetVal = -innerTicks;
     pwmVal_servo = SERVO_RIGHT;
+
 }
 
 uint16_t PID_Control_right() {
@@ -1106,6 +1154,41 @@ int isCarMoving(){
 }
 
 
+void readByte(uint8_t addr, uint8_t* data){
+	gyroBuffer[0] = addr;
+	HAL_I2C_Master_Transmit(&hi2c1, ICMAddress<<1, gyroBuffer, 1, 10);
+	HAL_I2C_Master_Receive(&hi2c1, ICMAddress<<1, data, 2, 20);
+}
+
+void writeByte(uint8_t addr, uint8_t data){
+	gyroBuffer[0] = addr;
+	gyroBuffer[1] = data;
+	HAL_I2C_Master_Transmit(&hi2c1, ICMAddress << 1, gyroBuffer, 2, 20);
+}
+
+void gyroInit(){
+// https://invensense.tdk.com/wp-content/uploads/2016/06/DS-000189-ICM-20948-v1.3.pdf
+	writeByte(0x06, 0x00); // Power up ICM
+	osDelay(10);
+	writeByte(0x03, 0x80); // Enable DMP features
+	osDelay(10);
+	writeByte(0x07, 0x07); // disable gyro first
+	osDelay(10);
+	writeByte(0x06, 0x01); // Set clock mode to auto-select best
+	osDelay(10);
+	writeByte(0x7F, 0x20); // Select User BANK 2
+	osDelay(10);
+	writeByte(0x01, 0x2F); // Gyro config: low pass filter 4 (100b), 2000 dps & enable dlpf
+	osDelay(10);
+	writeByte(0x0, 0x00); // Gyro config: sample rate divider
+	osDelay(10);
+	writeByte(0x7F, 0x00); // Select User BANK 0
+	osDelay(10);
+	writeByte(0x07, 0x00); //  reenable gyro
+	osDelay(10);
+}
+
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_USART1Receive */
@@ -1126,15 +1209,24 @@ void USART1Receive(void *argument)
 
 			  key = aRxBuffer[0];
 			  direction = aRxBuffer[1];
+
+			  if (aRxBuffer[2] < '0' || aRxBuffer[2] > '9') aRxBuffer[2] = '0';
+			  if (aRxBuffer[3] < '0' || aRxBuffer[3] > '9') aRxBuffer[3] = '0';
+			  if (aRxBuffer[4] < '0' || aRxBuffer[4] > '9') aRxBuffer[4] = '0';
 			  magnitude = ((int)(((int)aRxBuffer[2])-48)*100) + ((int)(((int)aRxBuffer[3])-48)*10) + ((int)(((int)aRxBuffer[4])-48));
 
 
 			  if (readyToExecute == 1){
 
 				  switch (key){
+				  	  case 'S':
+				  		  ringBuzzer(1);
+				  		  ringBuzzer(1);
+				  		  flagDone = 1;
+				  		  break;
 					  case 'D':
 						  break;
-					  case 'S':
+					  case 'F':
 						  moveForward((uint16_t)magnitude);
 						  while(isCarMoving());
 						  flagDone=1;
@@ -1175,10 +1267,9 @@ void USART1Receive(void *argument)
 				  }
 			  }
 
-			  // send ack back to rpi and ready for next instruction
 				if(flagDone==1){
 
-					osDelay(3500); //og 500
+					osDelay(5000); //og 500
 					acknowledgeCompletion();
 					ringBuzzer(30);
 					ringBuzzer(30);
@@ -1329,18 +1420,31 @@ void dcMotorTask(void *argument)
 	  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN2_Pin, GPIO_PIN_SET);
 	  HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN1_Pin, GPIO_PIN_RESET);
 
-
+	  pwmVal_servo = SERVO_STRAIGHT;
+	  oldPwmVal_Servo = pwmVal_servo;
   /* Infinite loop */
   for(;;)
   {
     // add the pwm IF statement
+
+	  if (pwmVal_servo != oldPwmVal_Servo){
+		  oldPwmVal_Servo = pwmVal_servo;
+		  htim1.Instance->CCR4 = pwmVal_servo;
+		  ringBuzzer(10);
+		  ringBuzzer(10);
+		  ringBuzzer(10);
+		  osDelay(500);
+	  }
+
+
+
 	  pwmVal_Left = PID_Control_left();
 	  pwmVal_Right = PID_Control_right();
 
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal_Left);
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, pwmVal_Right);
 
-	  htim1.Instance->CCR4 = pwmVal_servo;
+
 	  osDelay(25);
   }
   /* USER CODE END dcMotorTask */
