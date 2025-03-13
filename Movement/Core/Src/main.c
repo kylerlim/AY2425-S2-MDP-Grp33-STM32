@@ -31,6 +31,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 #define CMD_MAX_LENGTH  5
+#define AVERAGE_SPEED 18
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -48,6 +49,7 @@ const double TURNING_RADIUS = 35; // TO FIND OUT AGAIN, based on SERVO_L/R
 //70cm diameter for Right taking middle
 const double WHEELBASE = 16.8; // TO FIND OUT AGAIN, separation between two back wheels
 
+uint32_t estimatedDelay = 0;
 
 // PID-controlled DC Motors
 //#define COUNT_PER_REV 1320  // Quadrature-encoded pulses per wheel revolution
@@ -63,6 +65,10 @@ const double COUNT_PER_CM = COUNT_PER_REV / WHEEL_CIRCUM;
 uint16_t pwmVal_Left, pwmVal_Right = 0;
 volatile int start = 0;
 volatile int leftDiff = 0, rightDiff = 0;
+
+
+#define ACCEPTABLE_ERROR 2
+
 // PID variables
 float dTRight, dTLeft;
 
@@ -900,6 +906,11 @@ uint16_t PID_Control_right() {
     // Compute error
     int errorVal = rightEncoderVal - rightTargetVal;
 
+    int percentageError = (int)(fabs((double)errorVal / rightTargetVal) * 100);
+
+    if (percentageError < ACCEPTABLE_ERROR) return 0;
+
+
     // Compute derivative (only if dT > 0)
     float derivative = (dTRight > 0) ? (errorVal - prevError) / dTRight : 0.0f;
 
@@ -942,6 +953,11 @@ uint16_t PID_Control_left() {
 
     // Compute error
     int errorVal = leftEncoderVal - leftTargetVal;
+
+
+    int percentageError = (int)(fabs((double)errorVal / leftTargetVal) * 100);
+
+    if (percentageError < ACCEPTABLE_ERROR) return 0;
 
     // Compute derivative (only if dT > 0)
     float derivative = (dTLeft > 0) ? (errorVal - prevError) / dTLeft : 0.0f;
@@ -1082,12 +1098,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 //    OLED_ShowString(10, 20, aRxBuffer); //sanity check
 //    OLED_Refresh_Gram();
   	readyToExecute = 1;
-	HAL_UART_Receive_IT(&huart1, aRxBuffer, CMD_MAX_LENGTH);
+//	HAL_UART_Receive_IT(&huart1, aRxBuffer, CMD_MAX_LENGTH);
 }
 
 void acknowledgeCompletion(){
   uint8_t reply [3] = "OK\n";
   HAL_UART_Transmit(&huart1, (uint8_t *) reply, 3, 0xFFFF);
+  HAL_UART_Receive_IT(&huart1, aRxBuffer, CMD_MAX_LENGTH);
   readyToExecute = 0;
 }
 
@@ -1190,57 +1207,69 @@ void USART1Receive(void *argument)
 						  break;
 					  case 'F':
 						  moveForward((uint16_t)magnitude);
-						  while(isCarMoving());
+						  estimatedDelay = (int32_t) (magnitude * 1000) / AVERAGE_SPEED;
+//						  while(isCarMoving());
 						  flagDone=1;
 						  break;
 
 					  case 'B':
 						  moveBackward((uint16_t)magnitude);
-						  while(isCarMoving());
+						  estimatedDelay = (int32_t) (magnitude * 1000) / AVERAGE_SPEED;
+//						  while(isCarMoving());
 						  flagDone=1;
 						  break;
 
 					  case 'R':
 						  moveRightForward((uint16_t) magnitude);
-						  while(isCarMoving());
+						  estimatedDelay = (int32_t) (magnitude/90) * 5000;
+//						  while(isCarMoving());
 						  flagDone=1;
 						  break;
 
 					  case 'L':
 						  moveLeftForward((uint16_t) magnitude);
-						  while(isCarMoving());
+						  estimatedDelay = (int32_t) (magnitude/90) * 5000;
+//						  while(isCarMoving());
 						  flagDone=1;
 						  break;
 
-            
 					  case 'W':
 						  moveRightBackward((uint16_t) magnitude);
-						  while(isCarMoving());
+						  estimatedDelay = (int32_t) (magnitude/90) * 5000;
+//						  while(isCarMoving());
 						  flagDone=1;
 						  break;
 
 					  case 'V':
 						  moveLeftBackward((uint16_t) magnitude);
-						  while(isCarMoving());
+						  estimatedDelay = (int32_t) (magnitude/90) * 5000;
+//						  while(isCarMoving());
 						  flagDone=1;
 						  break;
 					  default:
+						  aRxBuffer[0] = 'S';
+						  aRxBuffer[1] = '0';
+						  aRxBuffer[2] = '0';
+						  aRxBuffer[3] = '0';
+						  aRxBuffer[4] = '0';
 						  break;
 				  }
 			  }
 
 				if(flagDone==1){
 
-					osDelay(5000); //og 500
+					osDelay(estimatedDelay); //og 500
 					acknowledgeCompletion();
 					ringBuzzer(30);
 					ringBuzzer(30);
 					flagDone = 0;
+
 					leftTargetVal = 0;
 					leftEncoderVal = 0;
 
 					rightEncoderVal = 0;
 					rightTargetVal  = 0;
+
 
 				}
 				//flagRead = 0;
