@@ -60,7 +60,8 @@ const double WHEEL_DIAMETER = 6.5;  // in cm
 const double WHEEL_CIRCUM = WHEEL_DIAMETER * PI;
 const double COUNT_PER_CM = COUNT_PER_REV / WHEEL_CIRCUM;
 uint16_t pwmVal_Left, pwmVal_Right = 0;
-
+volatile int start = 0;
+volatile int leftDiff = 0, rightDiff = 0;
 // PID variables
 float dTRight, dTLeft;
 
@@ -808,28 +809,20 @@ void moveForward(uint8_t distance_in_cm) {
 	char buf[20]; // for debug
 
 	int32_t targetTicks = (int32_t) (distance_in_cm * COUNT_PER_CM);
-	leftTargetVal = rightTargetVal = targetTicks;
-//	leftTargetVal = targetTicks;
-//	rightTargetVal = targetTicks;
-
-	// for debug
-
-	//  OLED_Refresh_Gram();
+	leftTargetVal = targetTicks;
+	rightTargetVal = targetTicks;
 	pwmVal_servo = SERVO_STRAIGHT;
+	start = 1;
 }
 
 void moveBackward(uint8_t distance_in_cm) {
   
 
 	int32_t targetTicks = (int32_t) - 1 * (distance_in_cm * COUNT_PER_CM);
-	leftTargetVal = rightTargetVal = targetTicks;
-//	int32_t targetTicks = (int32_t) (distance_in_cm * COUNT_PER_CM);
-//	leftTargetVal -= targetTicks;
-//	rightTargetVal -= targetTicks;
-
-    // for debug
-
+	leftTargetVal = targetTicks;
+	rightTargetVal = targetTicks;
 	pwmVal_servo = SERVO_STRAIGHT;
+	start = 1;
 }
 
 void moveLeftForward(uint16_t angle) {
@@ -1094,25 +1087,23 @@ int isCarMoving(){
  * returns true if car is moving
  * if car stopped return false
 */
-  if (pwmVal_Left == 0 && pwmVal_Right == 0){
-//	  ringBuzzer(200);
-//		leftTargetVal = 0;
-//		leftEncoderVal = 0;
+	int leftStop = 0, rightStop = 0;
 //
-//		rightEncoderVal = 0;
-//		rightTargetVal  = 0;
-	  HAL_UART_Receive_IT(&huart1, aRxBuffer, CMD_MAX_LENGTH);
-	  return 0;
-  }
+//  if (leftDiff < 50 && leftDiff > -50) leftStop = 1;
+//  if (rightDiff < 50 && rightDiff > -50) rightStop = 1;
+//  if (rightStop == 1 && leftStop == 1){
+//	  ringBuzzer(40);
+//	  ringBuzzer(40);
+////	  HAL_UART_Receive_IT(&huart1, aRxBuffer, CMD_MAX_LENGTH);
+//	  return 0;
+//  }
+
+	if (pwmVal_Left == 0 && pwmVal_Right ==0){
+		  return 0;
+	  }
   return 1;
 }
 
-//void resetEncoderState(void) {
-//    leftEncoderVal = 0;
-//    rightEncoderVal = 0;
-//    leftTargetVal = 0;
-//    rightTargetVal = 0;
-//}
 
 /* USER CODE END 4 */
 
@@ -1137,101 +1128,65 @@ void USART1Receive(void *argument)
 			  magnitude = ((int)(((int)aRxBuffer[2])-48)*100) + ((int)(((int)aRxBuffer[3])-48)*10) + ((int)(((int)aRxBuffer[4])-48));
 
 
-			  // ignore all other commands
-//			  if (aRxBuffer[1] < '0' || aRxBuffer[1] > '9') aRxBuffer[1] = '0';
-//			  if (aRxBuffer[2] < '0' || aRxBuffer[2] > '9') aRxBuffer[2] = '0';
-//			  if (aRxBuffer[3] < '0' || aRxBuffer[3] > '9') aRxBuffer[3] = '0';
-//			  if (aRxBuffer[4] < '0' || aRxBuffer[4] > '9') aRxBuffer[4] = '0';
-
 			  if (readyToExecute == 1){
+
 				  switch (key){
 					  case 'D':
 						  break;
 					  case 'S':
-//						  times_acceptable=0;
 						  moveForward((uint16_t)magnitude);
-						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-//						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'B':
-//						  times_acceptable=0;
 						  moveBackward((uint16_t)magnitude);
-						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-//						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'R':
-//						  times_acceptable=0;
 						  moveRightForward((uint16_t) magnitude);
-						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-//						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'L':
-//						  times_acceptable=0;
 						  moveLeftForward((uint16_t) magnitude);
-						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-//						  ringBuzzer(10); // for debug
 						  break;
 
             
 					  case 'W':
-//						  times_acceptable=0;
 						  moveRightBackward((uint16_t) magnitude);
-						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-//						  ringBuzzer(10); // for debug
 						  break;
 
 					  case 'V':
-//						  times_acceptable=0;
 						  moveLeftBackward((uint16_t) magnitude);
-						  osDelay(100); //og 100
 						  while(isCarMoving());
 						  flagDone=1;
-//						  ringBuzzer(10); // for debug
-						  break;
-
-					  case '-':
-//						  times_acceptable=0;
-//						  stopCar();
-						  flagDone=1;
-	//					  aRxBuffer[0] = '-';
-	//					  aRxBuffer[1] = '-';
-	//					  aRxBuffer[2] = '-';
-	//					  aRxBuffer[3] = '-';
-	//					  aRxBuffer[4] = '-';
-						  osDelay(1000); //og 100
 						  break;
 					  default:
 						  break;
 				  }
-//				  old = aRxBuffer[0];
 			  }
 
 			  // send ack back to rpi and ready for next instruction
 				if(flagDone==1){
 					acknowledgeCompletion();
-					osDelay(50); //og 500
+					osDelay(8000); //og 500
+					ringBuzzer(30);
+					ringBuzzer(30);
 					flagDone = 0;
-					// uncommenting this will cause the car not to move at all cause it doesnt have time to execute the command
 					leftTargetVal = 0;
 					leftEncoderVal = 0;
 
 					rightEncoderVal = 0;
 					rightTargetVal  = 0;
 
-//					resetEncoderState();
 				}
 				//flagRead = 0;
 				osDelay(1);
@@ -1255,7 +1210,6 @@ void encoderLeftTask(void *argument)
 	HAL_TIM_Encoder_Start(htim,TIM_CHANNEL_ALL);
 	int16_t cnt_B;
 	int8_t dirL = 1;
-	int diff = 0;
 	uint32_t tick = HAL_GetTick();
 	uint8_t buf[20]; // for debug
   /* Infinite loop */
@@ -1266,19 +1220,19 @@ void encoderLeftTask(void *argument)
 		  cnt_B = __HAL_TIM_GET_COUNTER(htim);
 		  if (!__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
 			  dirL = 1;
-			  diff = 65536 - cnt_B;
+			  leftDiff = 65536 - cnt_B;
 		  }
 		  else{
 				dirL = -1;
-				diff = cnt_B;
+				leftDiff = cnt_B;
 		  }
 
 		  if(dirL == 1){
-			  leftEncoderVal += (int16_t)diff;
+			  leftEncoderVal += (int16_t)leftDiff;
 		  }
 
 		  else{
-			  leftEncoderVal -= (int16_t)diff;
+			  leftEncoderVal -= (int16_t)leftDiff;
 		  }
 		  __HAL_TIM_SET_COUNTER(htim, 0);
 
@@ -1307,7 +1261,6 @@ void encoderRightTask(void *argument)
 	HAL_TIM_Encoder_Start(htim,TIM_CHANNEL_ALL);
 	int16_t cnt_A;
 	int8_t dirR = 1;
-	int diff = 0;
 	uint32_t tick = HAL_GetTick();
     uint8_t buf[20]; // for debug
   /* Infinite loop */
@@ -1319,19 +1272,19 @@ void encoderRightTask(void *argument)
 		  cnt_A = __HAL_TIM_GET_COUNTER(htim);
 		  if (!__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)){ // moving forward
 			dirR = -1;
-			diff = 65536 - cnt_A;
+			rightDiff = 65536 - cnt_A;
 		  }
 		  else{
 				dirR =  1; // motor D is wired differently idk why;
-				diff = cnt_A;
+				rightDiff = cnt_A;
 		  }
 
 		  if(dirR == 1){
-			  rightEncoderVal += (int16_t)diff;
+			  rightEncoderVal += (int16_t)rightDiff;
 		  }
 
 		  else{
-			  rightEncoderVal -= (int16_t)diff;
+			  rightEncoderVal -= (int16_t)rightDiff;
 		  }
 		  __HAL_TIM_SET_COUNTER(htim, 0);
 
@@ -1381,19 +1334,12 @@ void dcMotorTask(void *argument)
     // add the pwm IF statement
 	  pwmVal_Left = PID_Control_left();
 	  pwmVal_Right = PID_Control_right();
-//	  if (pwmVal_Left < 400) pwmVal_Left = 0;
-//	  if (pwmVal_Right < 400) pwmVal_Right = 0;
+
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, pwmVal_Left);
 	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, pwmVal_Right);
 
-
-//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, leftTargetVal);
-//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, PID_Control_left());
-//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, rightTargetVal);
-//	  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_4, PID_Control_right());
-
 	  htim1.Instance->CCR4 = pwmVal_servo;
-	  osDelay(25); // adjust the frequency here
+	  osDelay(25);
   }
   /* USER CODE END dcMotorTask */
 }
@@ -1422,10 +1368,10 @@ void oledTask1(void *argument)
 	  OLED_ShowString(10, 30, buf);
 
 	  sprintf(buf, "rT= %5d", rightTargetVal);
-	  OLED_ShowString(10, 40, buf);
+	  OLED_ShowString(10, 50, buf);
 
 	  sprintf(buf, "lT= %5d", leftTargetVal);
-	  OLED_ShowString(10, 50, buf);
+	  OLED_ShowString(10, 40, buf);
 	  OLED_Refresh_Gram();
 
 	  osDelay(100);
