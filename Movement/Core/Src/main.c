@@ -1176,8 +1176,9 @@ void USART1Receive(void *argument)
 
 			  // send ack back to rpi and ready for next instruction
 				if(flagDone==1){
-					acknowledgeCompletion();
+
 					osDelay(8000); //og 500
+					acknowledgeCompletion();
 					ringBuzzer(30);
 					ringBuzzer(30);
 					flagDone = 0;
