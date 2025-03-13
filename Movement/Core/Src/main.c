@@ -38,8 +38,9 @@
 
 
 // SERVO-MOTOR
-uint16_t SERVO_STRAIGHT = 146;
-uint16_t SERVO_LEFT = 105; //64cm for 100
+uint16_t SERVO_STRAIGHT = 142;
+//uint16_t SERVO_LEFT = 105; // the turning rad is too small, need to increase to make it turn wider
+uint16_t SERVO_LEFT = 109; // 64cm for 100
 uint16_t SERVO_RIGHT = 201; // change it to achieve TURNING RADIUS of 27
 //uint16_t SERVO_RIGHT = 220; // TURNING RADIUS is 23.35 atm
 uint16_t pwmVal_servo;
@@ -1075,8 +1076,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 }
 
 void acknowledgeCompletion(){
-  uint8_t reply [2] = "OK";
-  HAL_UART_Transmit(&huart1, (uint8_t *) reply, 2, 0xFFFF);
+  uint8_t reply [3] = "OK\n";
+  HAL_UART_Transmit(&huart1, (uint8_t *) reply, 3, 0xFFFF);
   readyToExecute = 0;
 }
 
@@ -1177,7 +1178,7 @@ void USART1Receive(void *argument)
 			  // send ack back to rpi and ready for next instruction
 				if(flagDone==1){
 
-					osDelay(8000); //og 500
+					osDelay(3500); //og 500
 					acknowledgeCompletion();
 					ringBuzzer(30);
 					ringBuzzer(30);
