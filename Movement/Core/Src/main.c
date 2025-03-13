@@ -93,8 +93,6 @@ uint8_t Is_First_Captured = 0;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
-
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
@@ -156,7 +154,6 @@ static void MX_TIM6_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_I2C1_Init(void);
 void USART1Receive(void *argument);
 void encoderLeftTask(void *argument);
 void encoderRightTask(void *argument);
@@ -220,7 +217,6 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
-  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
 
@@ -330,40 +326,6 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-}
-
-/**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
 }
 
 /**
@@ -1154,39 +1116,39 @@ int isCarMoving(){
 }
 
 
-void readByte(uint8_t addr, uint8_t* data){
-	gyroBuffer[0] = addr;
-	HAL_I2C_Master_Transmit(&hi2c1, ICMAddress<<1, gyroBuffer, 1, 10);
-	HAL_I2C_Master_Receive(&hi2c1, ICMAddress<<1, data, 2, 20);
-}
-
-void writeByte(uint8_t addr, uint8_t data){
-	gyroBuffer[0] = addr;
-	gyroBuffer[1] = data;
-	HAL_I2C_Master_Transmit(&hi2c1, ICMAddress << 1, gyroBuffer, 2, 20);
-}
-
-void gyroInit(){
-// https://invensense.tdk.com/wp-content/uploads/2016/06/DS-000189-ICM-20948-v1.3.pdf
-	writeByte(0x06, 0x00); // Power up ICM
-	osDelay(10);
-	writeByte(0x03, 0x80); // Enable DMP features
-	osDelay(10);
-	writeByte(0x07, 0x07); // disable gyro first
-	osDelay(10);
-	writeByte(0x06, 0x01); // Set clock mode to auto-select best
-	osDelay(10);
-	writeByte(0x7F, 0x20); // Select User BANK 2
-	osDelay(10);
-	writeByte(0x01, 0x2F); // Gyro config: low pass filter 4 (100b), 2000 dps & enable dlpf
-	osDelay(10);
-	writeByte(0x0, 0x00); // Gyro config: sample rate divider
-	osDelay(10);
-	writeByte(0x7F, 0x00); // Select User BANK 0
-	osDelay(10);
-	writeByte(0x07, 0x00); //  reenable gyro
-	osDelay(10);
-}
+//void readByte(uint8_t addr, uint8_t* data){
+//	gyroBuffer[0] = addr;
+//	HAL_I2C_Master_Transmit(&hi2c1, ICMAddress<<1, gyroBuffer, 1, 10);
+//	HAL_I2C_Master_Receive(&hi2c1, ICMAddress<<1, data, 2, 20);
+//}
+//
+//void writeByte(uint8_t addr, uint8_t data){
+//	gyroBuffer[0] = addr;
+//	gyroBuffer[1] = data;
+//	HAL_I2C_Master_Transmit(&hi2c1, ICMAddress << 1, gyroBuffer, 2, 20);
+//}
+//
+//void gyroInit(){
+//// https://invensense.tdk.com/wp-content/uploads/2016/06/DS-000189-ICM-20948-v1.3.pdf
+//	writeByte(0x06, 0x00); // Power up ICM
+//	osDelay(10);
+//	writeByte(0x03, 0x80); // Enable DMP features
+//	osDelay(10);
+//	writeByte(0x07, 0x07); // disable gyro first
+//	osDelay(10);
+//	writeByte(0x06, 0x01); // Set clock mode to auto-select best
+//	osDelay(10);
+//	writeByte(0x7F, 0x20); // Select User BANK 2
+//	osDelay(10);
+//	writeByte(0x01, 0x2F); // Gyro config: low pass filter 4 (100b), 2000 dps & enable dlpf
+//	osDelay(10);
+//	writeByte(0x0, 0x00); // Gyro config: sample rate divider
+//	osDelay(10);
+//	writeByte(0x7F, 0x00); // Select User BANK 0
+//	osDelay(10);
+//	writeByte(0x07, 0x00); //  reenable gyro
+//	osDelay(10);
+//}
 
 
 /* USER CODE END 4 */
@@ -1422,6 +1384,7 @@ void dcMotorTask(void *argument)
 
 	  pwmVal_servo = SERVO_STRAIGHT;
 	  oldPwmVal_Servo = pwmVal_servo;
+	  htim1.Instance->CCR4 = pwmVal_servo;
   /* Infinite loop */
   for(;;)
   {
@@ -1436,7 +1399,7 @@ void dcMotorTask(void *argument)
 		  osDelay(500);
 	  }
 
-
+	  htim1.Instance->CCR4 = pwmVal_servo;
 
 	  pwmVal_Left = PID_Control_left();
 	  pwmVal_Right = PID_Control_right();
