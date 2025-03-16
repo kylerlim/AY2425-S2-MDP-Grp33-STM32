@@ -259,6 +259,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   OLED_Init();
 
+  HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);  // Ensure Input Capture is running
 //  HAL_UART_Receive_IT(&huart3, (uint8_t *) aRxBuffer, 30);
 //  HAL_UART_Receive_IT(&huart1, (uint8_t *) aRxBuffer, CMD_MAX_LENGTH);
   HAL_UART_Receive_IT(&huart1, &aRxBuffer[bufferIndex], CMD_MAX_LENGTH);
@@ -1135,6 +1136,7 @@ uint16_t ultrasonic()
     uint16_t distance_return = 0;
 
     // Ensure input capture is enabled before triggering the sensor
+    HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1); // Ensure the timer is running
 
     // Send trigger pulse
     HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
@@ -1143,7 +1145,8 @@ uint16_t ultrasonic()
     HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_SET);
     delay_us(10); // Send 10us trigger pulse
     HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
-    HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
+//    HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
+
 
     // Wait for the echo measurement to complete
     osDelay(50);
@@ -1262,7 +1265,13 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM4 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) // Check correct timer and channel
     {
-        if (Is_First_Captured == 0) // Rising edge detected
+//    	OLED_ShowString(10, 80, "Callback Triggered!");
+//		OLED_Refresh_Gram();  // Display text when the callback is triggered
+
+//		HAL_GPIO_TogglePin(GPIOE, LED3_Pin);
+
+
+    	if (Is_First_Captured == 0) // Rising edge detected
         {
             tc1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
             Is_First_Captured = 1;
@@ -1665,7 +1674,12 @@ void oledTask1(void *argument)
 //	  OLED_ShowString(10, 50, buf);
 //	  OLED_Refresh_Gram();
 
+	  // Display timer counter value - check if its an issue
+//	  sprintf(buf, "TIM4 Count: %5d", __HAL_TIM_GET_COUNTER(&htim4));
+//	  OLED_ShowString(10, 70, buf);
+
 	  ultrasonic();
+	  ringBuzzer(50);
 
 	  osDelay(100);
   }
