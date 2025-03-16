@@ -66,6 +66,32 @@ uint16_t pwmVal_Left, pwmVal_Right = 0;
 volatile int start = 0;
 volatile int leftDiff = 0, rightDiff = 0;
 
+//uint16_t dist_Left, dist_Right;
+
+// Low-Pass Filter for Ultrasonic Sensor
+#define FILTER_ALPHA1 0.1 // Filter coefficient
+float filtered_distance = 60; // Initialize filtered distance variable
+uint16_t filtered_distance_int = 0;
+
+// Low-Pass Filter for IR Sensor
+#define FILTER_ALPHA2 0.15 // Filter coefficient
+
+//float filtered_irreading = 600; // Initialize filtered IR values variable
+//uint16_t filtered_irreading_int = 0;
+//float distanceirr = 0;
+//uint16_t distanceir = 0;
+//uint16_t initial_distance_ir = 0;
+
+// Left IR
+float filtered_irreading_L = 600;  // Filtered value for left IR sensor
+uint16_t filtered_irreading_L_int = 0;
+float distanceirr_L = 0;
+uint16_t distanceir_L = 0;
+// Right IR
+float filtered_irreading_R = 600;  // Filtered value for right IR sensor
+uint16_t filtered_irreading_R_int = 0;
+float distanceirr_R = 0;
+uint16_t distanceir_R = 0;
 
 #define ACCEPTABLE_ERROR 2
 
@@ -99,6 +125,9 @@ uint8_t Is_First_Captured = 0;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
+
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
@@ -160,6 +189,8 @@ static void MX_TIM6_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_ADC2_Init(void);
 void USART1Receive(void *argument);
 void encoderLeftTask(void *argument);
 void encoderRightTask(void *argument);
@@ -223,6 +254,8 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_ADC1_Init();
+  MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
 
@@ -332,6 +365,110 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief ADC2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC2_Init(void)
+{
+
+  /* USER CODE BEGIN ADC2_Init 0 */
+
+  /* USER CODE END ADC2_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC2_Init 1 */
+
+  /* USER CODE END ADC2_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc2.Instance = ADC2;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc2.Init.ScanConvMode = DISABLE;
+  hadc2.Init.ContinuousConvMode = DISABLE;
+  hadc2.Init.DiscontinuousConvMode = DISABLE;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc2.Init.NbrOfConversion = 1;
+  hadc2.Init.DMAContinuousRequests = DISABLE;
+  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_13;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC2_Init 2 */
+
+  /* USER CODE END ADC2_Init 2 */
+
 }
 
 /**
@@ -749,10 +886,10 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, OLED_SCL_Pin|OLED_SDA_Pin|OLED_RS_Pin|OLED_DC_Pin
@@ -865,7 +1002,9 @@ void moveLeftBackward(uint16_t angle) {
 }
 
 void moveRightForward(uint16_t angle) {
-    float outerArc = (PI * (TURNING_RADIUS + (WHEELBASE / 2)) * angle) / 180.0;
+//    angle = 130;
+
+	float outerArc = (PI * (TURNING_RADIUS + (WHEELBASE / 2)) * angle) / 180.0;
     float innerArc = (PI * (TURNING_RADIUS - (WHEELBASE / 2)) * angle) / 180.0;
 
     int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
@@ -878,7 +1017,9 @@ void moveRightForward(uint16_t angle) {
 }
 
 void moveRightBackward(uint16_t angle) {
-    float outerArc = (PI * (TURNING_RADIUS + (WHEELBASE / 2)) * angle) / 180.0;
+//	angle = 130;
+
+	float outerArc = (PI * (TURNING_RADIUS + (WHEELBASE / 2)) * angle) / 180.0;
     float innerArc = (PI * (TURNING_RADIUS - (WHEELBASE / 2)) * angle) / 180.0;
 
     int32_t outerTicks = (int32_t)(outerArc * COUNT_PER_CM);
@@ -1010,47 +1151,105 @@ uint16_t ultrasonic()
     // Display measured values
 
     // for debug only
-//    sprintf(buf, "tc1 = %5d us ", tc1);
-//    OLED_ShowString(10, 10, buf);
-//
-//    sprintf(buf, "tc2 = %5d us ", tc2);
-//    OLED_ShowString(10, 20, buf);
-//
-//    sprintf(buf, "Echo = %5d us ", echo);
-//    OLED_ShowString(10, 30, buf);
-//
-//    distance_return = echo * 0.0343 / 2; // Convert to cm
-//
-//    sprintf(buf, "Dist = %4d cm ", distance_return);
-//    OLED_ShowString(10, 40, buf);
-//    OLED_Refresh_Gram();
+    sprintf(buf, "tc1 = %5d us ", tc1);
+    OLED_ShowString(10, 10, buf);
+
+    sprintf(buf, "tc2 = %5d us ", tc2);
+    OLED_ShowString(10, 20, buf);
+
+    sprintf(buf, "Echo = %5d us ", echo);
+    OLED_ShowString(10, 30, buf);
+
+    distance_return = echo * 0.0343 / 2; // Convert to cm
+
+    sprintf(buf, "Dist = %4d cm ", distance_return);
+    OLED_ShowString(10, 40, buf);
+    OLED_Refresh_Gram();
 
     // debug end
 
     return distance_return;
 }
 
-//uint16_t readIRSensor(ADC_HandleTypeDef *hadc) {
+//uint16_t readLeftIR(ADC_HandleTypeDef hadc1) {
 //    char buf[20];
 //
-//    HAL_ADC_Start(hadc);
-//    HAL_ADC_PollForConversion(hadc, 10);
-//    uint16_t ADC_VAL = HAL_ADC_GetValue(hadc);
-//    HAL_ADC_Stop(hadc);
+//    HAL_ADC_Start(&hadc1);
+//    HAL_ADC_PollForConversion(&hadc1, 10); // polling every 10ms, can increase it to 100 if need be
+//    uint16_t ADC_VAL_Left = HAL_ADC_GetValue(&hadc1);
+//    HAL_ADC_Stop(&hadc1);
 //
 //    // Display ADC value
-//    sprintf(buf, "ADC Val: %5d", ADC_VAL);
+//    sprintf(buf, "ADC Val: %5d", ADC_VAL_Left);
 //    OLED_ShowString(10, 10, buf);
 //
 //    // Compute and display distance
-//    uint16_t distance = 136.68 * exp (924.195/ ADC_VAL) - 140.33;
-////    		distanceCalc(ADC_VAL);
-//    sprintf(buf, "Dist: %5d", distance);
-//    OLED_ShowString(10, 30, buf);
+//    dist_Left = 136.68 * exp (924.195/ ADC_VAL_Left) - 140.33;
+//
+//    sprintf(buf, "LeftIR: %5d", dist_Left);
+//    OLED_ShowString(10, 20, buf);
 //    OLED_Refresh_Gram();
 //
-//    return ADC_VAL;
+//    return ADC_VAL_Left;
 //}
+
+uint16_t readLeftIR() {
+    char buf[20];
+
+    HAL_ADC_Start(&hadc1);
+    HAL_ADC_PollForConversion(&hadc1, 10); // polling every 10ms, can increase it to 100 if need be
+    //uint16_t ADC_VAL_Left = HAL_ADC_GetValue(&hadc1);
+    uint16_t raw_value_L = HAL_ADC_GetValue(&hadc1);
+    HAL_ADC_Stop(&hadc1);
+
+    // Low-pass filter equation
+    //iDistanceL = dist_Left;
+    filtered_irreading_L = (FILTER_ALPHA2 * raw_value_L) + ((1 - FILTER_ALPHA2) * filtered_irreading_L);
+	filtered_irreading_L_int = (uint16_t)filtered_irreading_L;
+
+	// Linear-regression formula to convert IR Values to distance
+	distanceirr_L = 136.68 * exp (924.195/ filtered_irreading_L) - 140.33;
+	distanceir_L = (int) distanceirr_L;
+
+    // Display ADC value
+    sprintf(buf, "ADC L Val: %5d", raw_value_L);
+    OLED_ShowString(10, 10, buf);
+
+    // For debugging
+    sprintf(buf, "LeftIR: %5d", filtered_irreading_L_int);
+    OLED_ShowString(10, 20, buf);
+    OLED_Refresh_Gram();
+
+    return filtered_irreading_L_int;
+}
+
+
+uint16_t readRightIR(ADC_HandleTypeDef hadc2) {
+    char buf[20];
+
+    HAL_ADC_Start(&hadc2);
+    HAL_ADC_PollForConversion(&hadc2, 10); // polling every 10ms, can increase it to 100 if need be
+    uint16_t raw_value_R = HAL_ADC_GetValue(&hadc2);
+    HAL_ADC_Stop(&hadc2);
+
+    // Apply low-pass filter
+	filtered_irreading_R = (FILTER_ALPHA2 * raw_value_R) + ((1 - FILTER_ALPHA2) * filtered_irreading_R);
+	filtered_irreading_R_int = (uint16_t)filtered_irreading_R;
+
+    // Display ADC value
+    sprintf(buf, "ADC R Val: %5d", raw_value_R);
+    OLED_ShowString(10, 30, buf);
+
+    // Compute and display distance
+    distanceirr_R = 136.68 * exp(924.195 / filtered_irreading_R) - 140.33;
+	distanceir_R = (uint16_t)distanceirr_R;
+
+	sprintf(buf, "RightIR: %5d", filtered_irreading_R_int);
+    OLED_ShowString(10, 40, buf);
+    OLED_Refresh_Gram();
+
+    return filtered_irreading_R_int;
+}
 
 void delay_us(uint16_t us){
 	HAL_TIM_Base_Start(&htim6);
@@ -1196,7 +1395,6 @@ void USART1Receive(void *argument)
 
 
 			  if (readyToExecute == 1){
-
 				  switch (key){
 				  	  case 'S':
 				  		  ringBuzzer(1);
@@ -1221,7 +1419,7 @@ void USART1Receive(void *argument)
 
 					  case 'R':
 						  moveRightForward((uint16_t) magnitude);
-						  estimatedDelay = (int32_t) (magnitude/90) * 5000;
+						  estimatedDelay = (int32_t) (magnitude/90) * 5000/1.4;
 //						  while(isCarMoving());
 						  flagDone=1;
 						  break;
@@ -1235,7 +1433,7 @@ void USART1Receive(void *argument)
 
 					  case 'W':
 						  moveRightBackward((uint16_t) magnitude);
-						  estimatedDelay = (int32_t) (magnitude/90) * 5000;
+						  estimatedDelay = (int32_t) (magnitude/90) * 5000/1.4;
 //						  while(isCarMoving());
 						  flagDone=1;
 						  break;
@@ -1257,20 +1455,15 @@ void USART1Receive(void *argument)
 			  }
 
 				if(flagDone==1){
-
 					osDelay(estimatedDelay); //og 500
 					acknowledgeCompletion();
 					ringBuzzer(30);
 					ringBuzzer(30);
 					flagDone = 0;
-
 					leftTargetVal = 0;
 					leftEncoderVal = 0;
-
 					rightEncoderVal = 0;
 					rightTargetVal  = 0;
-
-
 				}
 				//flagRead = 0;
 				osDelay(1);
@@ -1456,21 +1649,23 @@ void oledTask1(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  sprintf(buf, "lC = %5d", leftEncoderVal);
-	  OLED_ShowString(10, 10, buf);
+//	  sprintf(buf, "lC = %5d", leftEncoderVal);
+//	  OLED_ShowString(10, 10, buf);
+//
+//	  sprintf(buf, "rC = %5d", rightEncoderVal);
+//	  OLED_ShowString(10, 20, buf);
+//
+//	  sprintf(buf, "cmd= %s", aRxBuffer);
+//	  OLED_ShowString(10, 30, buf);
+//
+//	  sprintf(buf, "lT= %5d", leftTargetVal);
+//	  OLED_ShowString(10, 40, buf);
+//
+//	  sprintf(buf, "rT= %5d", rightTargetVal);
+//	  OLED_ShowString(10, 50, buf);
+//	  OLED_Refresh_Gram();
 
-	  sprintf(buf, "rC = %5d", rightEncoderVal);
-	  OLED_ShowString(10, 20, buf);
-
-	  sprintf(buf, "cmd= %s", aRxBuffer);
-	  OLED_ShowString(10, 30, buf);
-
-	  sprintf(buf, "rT= %5d", rightTargetVal);
-	  OLED_ShowString(10, 50, buf);
-
-	  sprintf(buf, "lT= %5d", leftTargetVal);
-	  OLED_ShowString(10, 40, buf);
-	  OLED_Refresh_Gram();
+	  ultrasonic();
 
 	  osDelay(100);
   }
