@@ -74,7 +74,7 @@ float filtered_distance = 60; // Initialize filtered distance variable
 uint16_t filtered_distance_int = 0;
 
 // Low-Pass Filter for IR Sensor
-#define FILTER_ALPHA2 0.15 // Filter coefficient
+#define FILTER_ALPHA2 0.1 // Filter coefficient
 
 //float filtered_irreading = 600; // Initialize filtered IR values variable
 //uint16_t filtered_irreading_int = 0;
@@ -1151,23 +1151,23 @@ uint16_t ultrasonic()
     // Wait for the echo measurement to complete
     osDelay(50);
 
+    distance_return = echo * 0.0343 / 2; // Convert to cm
+
     // Display measured values
 
     // for debug only
-    sprintf(buf, "tc1 = %5d us ", tc1);
-    OLED_ShowString(10, 10, buf);
-
-    sprintf(buf, "tc2 = %5d us ", tc2);
-    OLED_ShowString(10, 20, buf);
-
-    sprintf(buf, "Echo = %5d us ", echo);
-    OLED_ShowString(10, 30, buf);
-
-    distance_return = echo * 0.0343 / 2; // Convert to cm
-
-    sprintf(buf, "Dist = %4d cm ", distance_return);
-    OLED_ShowString(10, 40, buf);
-    OLED_Refresh_Gram();
+//    sprintf(buf, "tc1 = %5d us ", tc1);
+//    OLED_ShowString(10, 10, buf);
+//
+//    sprintf(buf, "tc2 = %5d us ", tc2);
+//    OLED_ShowString(10, 20, buf);
+//
+//    sprintf(buf, "Echo = %5d us ", echo);
+//    OLED_ShowString(10, 30, buf);
+//
+//    sprintf(buf, "Dist = %4d cm ", distance_return);
+//    OLED_ShowString(10, 40, buf);
+//    OLED_Refresh_Gram();
 
     // debug end
 
@@ -1207,19 +1207,41 @@ uint16_t readLeftIR() {
 
     // Low-pass filter equation
     //iDistanceL = dist_Left;
+    // Ratio is 0.15 new and 0.85 old
     filtered_irreading_L = (FILTER_ALPHA2 * raw_value_L) + ((1 - FILTER_ALPHA2) * filtered_irreading_L);
 	filtered_irreading_L_int = (uint16_t)filtered_irreading_L;
 
-	// Linear-regression formula to convert IR Values to distance
-	distanceirr_L = 136.68 * exp (924.195/ filtered_irreading_L) - 140.33;
+	// Compute and display distance
+	// y   x
+	//10cm 3120
+	//15cm 2185
+	//20cm 1650
+	//25cm 1370
+	//30cm 1170
+	//35cm 1040
+	//40cm 920
+	//y = 2.650594135131.7273976-12*(x^4)+-2.610518922131.7273976-8*(x^3)+0.00009737117541*(x^2)+-0.1691969613*(x^1)+131.7273976
+
+//	distanceirr_L = 136.68 * exp (924.195/ filtered_irreading_L) - 140.33;
+
+	float x = filtered_irreading_L;
+	float x2 = x * x;
+	float x3 = x2 * x;
+	float x4 = x3 * x;
+
+	distanceirr_L = (2.6505941351e-12 * x4)
+	              + (-2.6105189221e-8 * x3)
+	              + (0.00009737117541 * x2)
+	              + (-0.1691969613 * x)
+	              + 131.7273976;
 	distanceir_L = (int) distanceirr_L;
 
     // Display ADC value
-    sprintf(buf, "ADC L Val: %5d", raw_value_L);
+    sprintf(buf, "ADC L: %4d", raw_value_L);
     OLED_ShowString(10, 10, buf);
 
     // For debugging
-    sprintf(buf, "LeftIR: %5d", filtered_irreading_L_int);
+    sprintf(buf, "Dist L: %4d cm", distanceir_L);
     OLED_ShowString(10, 20, buf);
     OLED_Refresh_Gram();
 
@@ -1227,7 +1249,7 @@ uint16_t readLeftIR() {
 }
 
 
-uint16_t readRightIR(ADC_HandleTypeDef hadc2) {
+uint16_t readRightIR() {
     char buf[20];
 
     HAL_ADC_Start(&hadc2);
@@ -1236,18 +1258,41 @@ uint16_t readRightIR(ADC_HandleTypeDef hadc2) {
     HAL_ADC_Stop(&hadc2);
 
     // Apply low-pass filter
+    // Ratio is 0.15 new and 0.85 old
 	filtered_irreading_R = (FILTER_ALPHA2 * raw_value_R) + ((1 - FILTER_ALPHA2) * filtered_irreading_R);
 	filtered_irreading_R_int = (uint16_t)filtered_irreading_R;
 
-    // Display ADC value
-    sprintf(buf, "ADC R Val: %5d", raw_value_R);
-    OLED_ShowString(10, 30, buf);
+//  distanceirr_R = 136.68 * exp(924.195 / filtered_irreading_R) - 140.33;
+//	distanceir_R = (uint16_t)distanceirr_R;
 
-    // Compute and display distance
-    distanceirr_R = 136.68 * exp(924.195 / filtered_irreading_R) - 140.33;
-	distanceir_R = (uint16_t)distanceirr_R;
+	// y   x
+	//10cm 2930
+	//15cm 2080
+	//20cm 1630
+	//25cm 1335
+	//30cm 1160
+	//35cm 1015
+	//40cm 880
 
-	sprintf(buf, "RightIR: %5d", filtered_irreading_R_int);
+	float w = filtered_irreading_R;
+	float w2 = w * w;
+	float w3 = w2 * w;
+	float w4 = w3 * w;
+
+	// Compute and display distance
+	distanceirr_R = (7.9376327810e-13 * w4)
+	              + (-1.0942045651e-8 * w3)
+	              + (0.00005255001201 * w2)
+	              + (-0.1125942595 * w)
+	              + 105.4951681;
+	distanceir_R = (int) distanceirr_R;
+
+	// Display ADC value
+	sprintf(buf, "ADC R: %4d", raw_value_R);
+	OLED_ShowString(10, 30, buf);
+
+	// For debugging
+	sprintf(buf, "Dist R: %4d cm", distanceir_R);
     OLED_ShowString(10, 40, buf);
     OLED_Refresh_Gram();
 
@@ -1678,9 +1723,11 @@ void oledTask1(void *argument)
 //	  sprintf(buf, "TIM4 Count: %5d", __HAL_TIM_GET_COUNTER(&htim4));
 //	  OLED_ShowString(10, 70, buf);
 
-	  ultrasonic();
-	  ringBuzzer(50);
+//	  ultrasonic();
+//	  ringBuzzer(50);
 
+	  readLeftIR();
+	  readRightIR();
 	  osDelay(100);
   }
   /* USER CODE END oledTask1 */
