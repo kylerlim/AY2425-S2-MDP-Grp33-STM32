@@ -27,6 +27,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define MAX_ACCEPTABLE_TIMES 5  // Configurable limit
 
 /* USER CODE END PTD */
 
@@ -164,7 +165,7 @@ char key;
 char direction;
 int magnitude = 0;
 int update = 0;
-int debug =1 ;
+//int debug =1 ;
 
 // movement
 uint16_t pwmVal_servo = 149;
@@ -1415,9 +1416,8 @@ int PID_Juke(double error, int right)
 	return outputPWM;
 
 }
-
 int finishCheck(){
-	buzzerBeep(20);
+//	buzzerBeep(20);
 	if (times_acceptable > 4){
 		e_brake = 1;
 		pwmVal_L = pwmVal_R = 0;
@@ -1463,22 +1463,28 @@ void gyroInit(){
 }
 
 void acknowledgeCompletion(){
-  uint8_t reply [4] = "OK1\0";
-  HAL_UART_Transmit(&huart3, (uint8_t *) reply, 2, 0xFFFF);
+  uint8_t reply [4] = "OK1\n";
+  HAL_UART_Transmit(&huart3, (uint8_t *) reply, 3, 0xFFFF);
 //  readyToExecute = 0;
 }
 
 void acknowledgeCompletion1(){
-  uint8_t reply [4] = "OK2\0";
-  HAL_UART_Transmit(&huart3, (uint8_t *) reply, 2, 0xFFFF);
+  uint8_t reply [4] = "OK2\n";
+  HAL_UART_Transmit(&huart3, (uint8_t *) reply, 3, 0xFFFF);
 //  readyToExecute = 0;
 }
 
 void acknowledgeCompletion2(){
-  uint8_t reply [4] = "OK3\0";
-  HAL_UART_Transmit(&huart3, (uint8_t *) reply, 2, 0xFFFF);
+  uint8_t reply [4] = "OK3\n";
+  HAL_UART_Transmit(&huart3, (uint8_t *) reply, 3, 0xFFFF);
 //  readyToExecute = 0;
 }
+
+void debug(const char* reply) {
+    HAL_UART_Transmit_IT(&huart3, (uint8_t*)reply, strlen(reply));  // Non-blocking
+}
+
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -1695,7 +1701,7 @@ void StartOledTask(void *argument)
 	uint8_t righty[20] = {0};
 	uint8_t motorD[20] = {0};
 	uint8_t check[20] = {0};
-	uint8_t debugMsg[20] = "hello\0";
+	uint8_t deugMsg[20] = "hello\0";
 	uint32_t adcValue=0;
 	uint32_t adcValue2=0;
 
@@ -2142,6 +2148,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarRight(45);
+		debug("01\n");
 		while(finishCheck());
 
 		pwmVal_servo = 101;
@@ -2149,6 +2156,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarLeft(95);
+		debug("02\n");
 		while(finishCheck());
 
 		pwmVal_servo = 238;
@@ -2156,6 +2164,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarRight(45);
+		debug("03\n");
 		while(finishCheck());
 
 		pwmVal_servo = 149;
@@ -2172,6 +2181,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarLeft(50);
+		debug("04\n");
 		while(finishCheck());
 
 		pwmVal_servo = 238;
@@ -2179,6 +2189,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarRight(95);
+		debug("05\n");
 		while(finishCheck());
 
 		pwmVal_servo = 101;
@@ -2186,6 +2197,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarLeft(45);
+		debug("06\n");
 		while(finishCheck());
 
 		pwmVal_servo = 149;
@@ -2204,11 +2216,12 @@ void StartJukeTask(void *argument)
 		times_acceptable=0;
 		leftEncoderVal = rightEncoderVal = 0;
 		moveCarStraight(-5);
+		debug("07\n");
 		while(finishCheck());
 		errorcorrection = 0;
 	}
 
-	acknowledgeCompletion1();
+
 
 //	while(aRxBuffer[0]!='D'){
 //		osDelay(5);
@@ -2225,6 +2238,7 @@ void StartJukeTask(void *argument)
 	errorcorrection = 1;
 	times_acceptable=0;
 	moveCarStraightSensor(28);
+	debug("08\n");
 	while(finishCheck());
 	errorcorrection = 0;
 	straightUS = 0;
@@ -2262,6 +2276,7 @@ void StartJukeTask(void *argument)
 		osDelay(50);
 		times_acceptable=0;
 		moveCarRight(88);
+		debug("09\n");
 		while(finishCheck());
 		osDelay(50);
 		pwmVal_servo = 149;
@@ -2269,6 +2284,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarStraight(-13); //-13
+		debug("10\n");
 		while(finishCheck());
 		//pwmVal_servo = 149;
 		osDelay(100);
@@ -2276,6 +2292,7 @@ void StartJukeTask(void *argument)
 		while(irDistance1<30){
 			times_acceptable=0;
 			moveCarStraight(8);
+			debug("11\n");
 			while(finishCheck()); // check if this is too long
 			pwmVal_servo = 149;
 			osDelay(100); // check if this is too long
@@ -2286,6 +2303,7 @@ void StartJukeTask(void *argument)
 		osDelay(20);
 		times_acceptable=0;
 		moveCarLeft(180);
+		debug("12\n");
 		while(finishCheck());
 		osDelay(200);
 
@@ -2300,6 +2318,7 @@ void StartJukeTask(void *argument)
 			times_acceptable=0;
 			osDelay(200);
 			moveCarStraight(14);
+			debug("13\n");
 			while(finishCheck());
 			pwmVal_servo = 149;
 
@@ -2314,6 +2333,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarLeft(90);
+		debug("14\n");
 		while(finishCheck());
 
 		pwmVal_servo = 149;
@@ -2327,6 +2347,7 @@ void StartJukeTask(void *argument)
 		osDelay(50);
 		times_acceptable=0;
 		moveCarLeft(88);
+		debug("15\n");
 		while(finishCheck());
 		osDelay(50);
 		pwmVal_servo = 149;
@@ -2334,6 +2355,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarStraight(-13); //-13
+		debug("16\n");
 		while(finishCheck());
 		//pwmVal_servo = 149;
 		osDelay(100);
@@ -2341,6 +2363,7 @@ void StartJukeTask(void *argument)
 		while(irDistance2<30){
 			times_acceptable=0;
 			moveCarStraight(8);
+			debug("17\n");
 			while(finishCheck()); // checkHang
 			pwmVal_servo = 149;
 			osDelay(100); // checkHang
@@ -2351,6 +2374,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarRight(180);
+		debug("18\n");
 		while(finishCheck()); // checkHang
 		osDelay(200); // checkHang
 
@@ -2367,6 +2391,7 @@ void StartJukeTask(void *argument)
 			times_acceptable=0;
 			osDelay(200);
 			moveCarStraight(14);
+			debug("19\n");
 			while(finishCheck()); // checkHang
 			pwmVal_servo = 149;
 
@@ -2382,6 +2407,7 @@ void StartJukeTask(void *argument)
 
 		times_acceptable = 0;
 		moveCarRight(90);
+		debug("20\n");
 		while(finishCheck()); // checkHang
 
 		pwmVal_servo = 149;
@@ -2399,6 +2425,7 @@ void StartJukeTask(void *argument)
 	times_acceptable = 0;
 	moveCarStraight((movebackR/75.6) - 85);
 	while(finishCheck());
+//	while(finishCheck());
 	errorcorrection = 0;
 
 	// for triangle idea
