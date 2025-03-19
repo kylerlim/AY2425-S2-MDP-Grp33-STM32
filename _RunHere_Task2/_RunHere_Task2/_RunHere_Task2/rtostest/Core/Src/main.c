@@ -41,7 +41,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
-ADC_HandleTypeDef hadc2;
+ADC_HandleTypeDef hadc3;
 
 I2C_HandleTypeDef hi2c1;
 
@@ -136,7 +136,7 @@ static void MX_USART3_UART_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_ADC2_Init(void);
+static void MX_ADC3_Init(void);
 void StartDefaultTask(void *argument);
 void StartMotorTask(void *argument);
 void StartOledTask(void *argument);
@@ -275,7 +275,7 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM4_Init();
   MX_ADC1_Init();
-  MX_ADC2_Init();
+  MX_ADC3_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
 
@@ -473,54 +473,54 @@ static void MX_ADC1_Init(void)
 }
 
 /**
-  * @brief ADC2 Initialization Function
+  * @brief ADC3 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_ADC2_Init(void)
+static void MX_ADC3_Init(void)
 {
 
-  /* USER CODE BEGIN ADC2_Init 0 */
+  /* USER CODE BEGIN ADC3_Init 0 */
 
-  /* USER CODE END ADC2_Init 0 */
+  /* USER CODE END ADC3_Init 0 */
 
   ADC_ChannelConfTypeDef sConfig = {0};
 
-  /* USER CODE BEGIN ADC2_Init 1 */
+  /* USER CODE BEGIN ADC3_Init 1 */
 
-  /* USER CODE END ADC2_Init 1 */
+  /* USER CODE END ADC3_Init 1 */
 
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
   */
-  hadc2.Instance = ADC2;
-  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc2.Init.ScanConvMode = DISABLE;
-  hadc2.Init.ContinuousConvMode = DISABLE;
-  hadc2.Init.DiscontinuousConvMode = DISABLE;
-  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc2.Init.NbrOfConversion = 1;
-  hadc2.Init.DMAContinuousRequests = DISABLE;
-  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  hadc3.Instance = ADC3;
+  hadc3.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc3.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc3.Init.ScanConvMode = DISABLE;
+  hadc3.Init.ContinuousConvMode = DISABLE;
+  hadc3.Init.DiscontinuousConvMode = DISABLE;
+  hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc3.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc3.Init.NbrOfConversion = 1;
+  hadc3.Init.DMAContinuousRequests = DISABLE;
+  hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc3) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_12;
+  sConfig.Channel = ADC_CHANNEL_13;
   sConfig.Rank = 1;
   sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+  if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN ADC2_Init 2 */
+  /* USER CODE BEGIN ADC3_Init 2 */
 
-  /* USER CODE END ADC2_Init 2 */
+  /* USER CODE END ADC3_Init 2 */
 
 }
 
@@ -1038,6 +1038,7 @@ void buzzerBeep(int time)
 	HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer On
 	HAL_Delay(time);
 	HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer Off
+	HAL_Delay(time);
 }
 
 
@@ -1229,13 +1230,13 @@ int PID_Control(int error, int right)
 	}
 
 	if(error > 2000){
-		outputPWM += 7500;
-	}else if(error > 500){
-		outputPWM += 6000;
-	}else if(error > 200){
 		outputPWM += 2000;
+	}else if(error > 500){
+		outputPWM += 1800;
+	}else if(error > 200){
+		outputPWM += 1600;
 	}else if(error > 100){
-		outputPWM += 1500;
+		outputPWM += 1300;
 	}else if(error > 50){
 		outputPWM += 1100;
 	}else if(error >=1){
@@ -1279,17 +1280,17 @@ int PID_Angle_30(double errord,  int right)
 
 
 	if(error > 300){
-		outputPWM += 5000;
-	}else if(error > 200){
-		outputPWM += 4000;
-	}else if(error > 100){
 		outputPWM += 2000;
-	}else if(error > 50){
+	}else if(error > 200){
+		outputPWM += 1800;
+	}else if(error > 100){
 		outputPWM += 1600;
-	}else if(error > 20){
+	}else if(error > 50){
 		outputPWM += 1200;
+	}else if(error > 20){
+		outputPWM += 1000;
 	}else if(error > 10){
-		outputPWM += 900;
+		outputPWM += 800;
 	}else if(error > 3){
 		times_acceptable++;
 		outputPWM += 0;
@@ -1338,9 +1339,9 @@ int PID_Angle_90(double errord, int right)
 	}
 
 	if(error > 300){
-		outputPWM += 4800;
+		outputPWM += 2800;
 	}else if(error > 200){
-		outputPWM += 4100;
+		outputPWM += 2100;
 	}else if(error > 100){
 		outputPWM += 1600;
 	}else if(error > 50){
@@ -1396,9 +1397,9 @@ int PID_Juke(double error, int right)
 	}
 
 	if(error > 40){
-		outputPWM += 6000;
+		outputPWM += 2000;
 	}else if(error > usTargetGLOBAL+9){
-		outputPWM += 2300;
+		outputPWM += 1300;
 	}else if(error > usTargetGLOBAL+.5){
 		outputPWM += 900; //900
 	}else if(error <=usTargetGLOBAL+.5){
@@ -1415,7 +1416,7 @@ int PID_Juke(double error, int right)
 }
 
 int finishCheck(){
-
+	buzzerBeep(20);
 	if (times_acceptable > 4){
 		e_brake = 1;
 		pwmVal_L = pwmVal_R = 0;
@@ -1888,7 +1889,8 @@ void StartGyroTask(void *argument)
 	osDelay(300);
 	buzzerBeep(100);
 	while(ticker<100){
-		osDelay(50);
+//		osDelay(50);
+		buzzerBeep(25);
 		readByte(0x37, val);
 		angular_speed = (val[0] << 8) | val[1];
 		trash +=(double)((double)angular_speed)*((HAL_GetTick() - tick)/16400.0);
@@ -1945,10 +1947,10 @@ void StartBulleyesTask(void *argument)
 		HAL_ADC_Stop(&hadc1);
 
 
-		HAL_ADC_Start(&hadc2);
-		HAL_ADC_PollForConversion(&hadc2, 10);
-		ADC_VAL2 = HAL_ADC_GetValue(&hadc2);
-		HAL_ADC_Stop(&hadc2);
+		HAL_ADC_Start(&hadc3);
+		HAL_ADC_PollForConversion(&hadc3, 10);
+		ADC_VAL2 = HAL_ADC_GetValue(&hadc3);
+		HAL_ADC_Stop(&hadc3);
 
 
 		voltage1 = (float) (ADC_VAL1*5)/4095;
@@ -2065,9 +2067,9 @@ void StartJukeTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	while(notdone){
-	  osDelay(10);
-	}
+//	while(notdone){
+//	  osDelay(10);
+//	}
 
 	osDelay(150);
 
@@ -2077,6 +2079,7 @@ void StartJukeTask(void *argument)
 	while(aRxBuffer[0]!='S'){
 		osDelay(5);
 	}
+//	buzzerBeep(2000);
 	//HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer On
 
 	rightEncoderVal = leftEncoderVal=0;
@@ -2256,9 +2259,9 @@ void StartJukeTask(void *argument)
 		while(irDistance1<30){
 			times_acceptable=0;
 			moveCarStraight(8);
-			while(finishCheck());
+			while(finishCheck()); // check if this is too long
 			pwmVal_servo = 149;
-			osDelay(100);
+			osDelay(100); // check if this is too long
 		}
 
 
@@ -2323,9 +2326,9 @@ void StartJukeTask(void *argument)
 		while(irDistance2<30){
 			times_acceptable=0;
 			moveCarStraight(8);
-			while(finishCheck());
+			while(finishCheck()); // checkHang
 			pwmVal_servo = 149;
-			osDelay(100);
+			osDelay(100); // checkHang
 		}
 
 		pwmVal_servo = 230;
@@ -2333,8 +2336,8 @@ void StartJukeTask(void *argument)
 
 		times_acceptable=0;
 		moveCarRight(180);
-		while(finishCheck());
-		osDelay(200);
+		while(finishCheck()); // checkHang
+		osDelay(200); // checkHang
 
 		pwmVal_servo = 149;
 		osDelay(20);
@@ -2349,7 +2352,7 @@ void StartJukeTask(void *argument)
 			times_acceptable=0;
 			osDelay(200);
 			moveCarStraight(14);
-			while(finishCheck());
+			while(finishCheck()); // checkHang
 			pwmVal_servo = 149;
 
 			obsTwoLength++;
@@ -2364,10 +2367,10 @@ void StartJukeTask(void *argument)
 
 		times_acceptable = 0;
 		moveCarRight(90);
-		while(finishCheck());
+		while(finishCheck()); // checkHang
 
 		pwmVal_servo = 149;
-		osDelay(20);
+		osDelay(20); // checkHang
 	}
 
 	// for slide turning idea
@@ -2410,7 +2413,7 @@ void StartJukeTask(void *argument)
 		pwmVal_servo = 106;
 		times_acceptable=0;
 		moveCarLeft(70);
-		while(finishCheck());
+		while(finishCheck()); // checkHang
 
 
 		pwmVal_servo = 149;
@@ -2427,7 +2430,7 @@ void StartJukeTask(void *argument)
 		pwmVal_servo = 230;
 		times_acceptable=0;
 		moveCarRight(70);
-		while(finishCheck());
+		while(finishCheck()); // checkHang
 		osDelay(10);
 
 		pwmVal_servo = 149;
@@ -2462,7 +2465,7 @@ void StartJukeTask(void *argument)
 		pwmVal_servo = 106;
 		times_acceptable=0;
 		moveCarLeft(70);
-		while(finishCheck());
+		while(finishCheck()); // checkHang
 		osDelay(10);
 
 		pwmVal_servo = 149;
@@ -2479,7 +2482,7 @@ void StartJukeTask(void *argument)
 	errorcorrection = 1;
 	times_acceptable=0;
 	moveCarStraightSensor(22);
-	while(finishCheck());
+	while(finishCheck()); // checkHang
 	errorcorrection = 0;
 	straightUS = 0;
 
