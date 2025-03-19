@@ -91,6 +91,10 @@ void Error_Handler(void);
 #define Echo_GPIO_Port GPIOD
 #define Trigger_Pin GPIO_PIN_13
 #define Trigger_GPIO_Port GPIOD
+#define PWMB_Pin GPIO_PIN_7
+#define PWMB_GPIO_Port GPIOC
+#define PWMD_Pin GPIO_PIN_9
+#define PWMD_GPIO_Port GPIOC
 #define SWDIO_Pin GPIO_PIN_13
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14

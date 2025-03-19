@@ -325,7 +325,7 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     PC7     ------> TIM8_CH2
     PC9     ------> TIM8_CH4
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_9;
+    GPIO_InitStruct.Pin = PWMB_Pin|PWMD_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -487,7 +487,7 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
     PC7     ------> TIM8_CH2
     PC9     ------> TIM8_CH4
     */
-    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_7|GPIO_PIN_9);
+    HAL_GPIO_DeInit(GPIOC, PWMB_Pin|PWMD_Pin);
 
     /* USER CODE BEGIN TIM8_MspDeInit 1 */
 
