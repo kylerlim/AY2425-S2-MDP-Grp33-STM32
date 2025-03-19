@@ -1024,6 +1024,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 }
 
 
+
 void ultrasonic_read(void){
     //code for ultrasound
 	usflag=0;
@@ -1460,6 +1461,24 @@ void gyroInit(){
 	writeByte(0x07, 0x00);
 	osDelay(10);
 }
+
+void acknowledgeCompletion(){
+  uint8_t reply [4] = "OK1\0";
+  HAL_UART_Transmit(&huart3, (uint8_t *) reply, 2, 0xFFFF);
+//  readyToExecute = 0;
+}
+
+void acknowledgeCompletion1(){
+  uint8_t reply [4] = "OK2\0";
+  HAL_UART_Transmit(&huart3, (uint8_t *) reply, 2, 0xFFFF);
+//  readyToExecute = 0;
+}
+
+void acknowledgeCompletion2(){
+  uint8_t reply [4] = "OK3\0";
+  HAL_UART_Transmit(&huart3, (uint8_t *) reply, 2, 0xFFFF);
+//  readyToExecute = 0;
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -1667,8 +1686,6 @@ void StartMotorTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_StartOledTask */
-int debugthis = 0;
-
 void StartOledTask(void *argument)
 {
   /* USER CODE BEGIN StartOledTask */
@@ -2086,7 +2103,7 @@ void StartJukeTask(void *argument)
 	straightUS = 1;
 	errorcorrection = 1;
 	times_acceptable=0;
-	moveCarStraightSensor(26); //doesnt change the direction
+	moveCarStraightSensor(26); //doesnt change the direction // car stops 26 cm from ultrasonic sensor
 	//osDelay(500);
 	while(finishCheck());
 	osDelay(50);
@@ -2146,7 +2163,7 @@ void StartJukeTask(void *argument)
 		target_angle -= 5;
 
 
-		HAL_UART_Transmit(&huart3, "A", 1,0xFFFF);
+		acknowledgeCompletion();
 	}
 	else if(nexttask == 'L'){	//First arrow is left
 
@@ -2175,7 +2192,7 @@ void StartJukeTask(void *argument)
 		osDelay(25);
 		target_angle += 5;
 
-		HAL_UART_Transmit(&huart3, "A", 1,0xFFFF);
+		acknowledgeCompletion();
 	}
 	turn90 = 1;
 
@@ -2191,11 +2208,11 @@ void StartJukeTask(void *argument)
 		errorcorrection = 0;
 	}
 
+	acknowledgeCompletion1();
 
-
-	while(aRxBuffer[0]!='D'){
-		osDelay(5);
-	}
+//	while(aRxBuffer[0]!='D'){
+//		osDelay(5);
+//	}
 	//HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer On
 
 
@@ -2279,8 +2296,6 @@ void StartJukeTask(void *argument)
 		times_acceptable=0;
 		leftEncoderVal = rightEncoderVal = 0;
 
-//		moveCarStraight(50);
-//		while(finishCheck());
 		while(irDistance1<30 || obsTwoFlag==0){
 			times_acceptable=0;
 			osDelay(200);
@@ -2304,7 +2319,7 @@ void StartJukeTask(void *argument)
 		pwmVal_servo = 149;
 		osDelay(20);
 
-
+		acknowledgeCompletion1();
 
 	}
 	else if(nexttask == 'L'){
@@ -2371,6 +2386,7 @@ void StartJukeTask(void *argument)
 
 		pwmVal_servo = 149;
 		osDelay(20); // checkHang
+		acknowledgeCompletion1();
 	}
 
 	// for slide turning idea
@@ -2436,6 +2452,8 @@ void StartJukeTask(void *argument)
 		pwmVal_servo = 149;
 		osDelay(20);
 
+		acknowledgeCompletion2();
+
 	}
 	else if(nexttask == 'L'){
 //		times_acceptable=0;
@@ -2470,6 +2488,8 @@ void StartJukeTask(void *argument)
 
 		pwmVal_servo = 149;
 		osDelay(20);
+
+		acknowledgeCompletion2();
 
 	}
 
