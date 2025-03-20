@@ -27,12 +27,16 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define MAX_ACCEPTABLE_TIMES 5  // Configurable limit
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define SERVOCENTER 149
+#define SERVORIGHT 210//230 //220
+#define SERVOLEFT 90 //100 //100
+//uint16_t SERVO_LEFT = 72;
+//uint16_t SERVO_RIGHT = 200;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -80,7 +84,7 @@ osThreadId_t gyroTaskHandle;
 const osThreadAttr_t gyroTask_attributes = {
   .name = "gyroTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow2,
+  .priority = (osPriority_t) osPriorityLow1,
 };
 /* Definitions for irSensorTask */
 osThreadId_t irSensorTaskHandle;
@@ -108,7 +112,7 @@ osThreadId_t jukeTaskHandle;
 const osThreadAttr_t jukeTask_attributes = {
   .name = "jukeTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
 osThreadId_t IrSensorsTaskHandle;
@@ -158,9 +162,11 @@ char direction;
 int magnitude = 0;
 int update = 0;
 //int debug =1 ;
+int goodluck =0;
 
 // movement
-uint16_t pwmVal_servo = 149;
+uint16_t pwmVal_servo = SERVOCENTER;
+uint16_t oldPwmVal_servo = SERVOCENTER;
 uint16_t pwmVal_R = 0;
 uint16_t pwmVal_L = 0;
 int times_acceptable=0;
@@ -332,30 +338,7 @@ int main(void)
 
   /* Init scheduler */
   osKernelInitialize();
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2023 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-/**
-* @}
-*/
-/**
-* @}
-*/
+
 
   /* Start scheduler */
   osKernelStart();
@@ -1017,7 +1000,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 }
 
 
-
 void ultrasonic_read(void){
     //code for ultrasound
 	usflag=0;
@@ -1029,9 +1011,9 @@ void ultrasonic_read(void){
 
 void buzzerBeep(int time)
 {
-	HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer On
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET); //Buzzer On
 	HAL_Delay(time);
-	HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer Off
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET); //Buzzer Off
 	HAL_Delay(time);
 }
 
@@ -1053,7 +1035,7 @@ void moveCarStraight(double distance)
 void moveCarStraightSensor(int usTarget)
 {
 	usTargetGLOBAL= usTarget;
-	pwmVal_servo = 149;
+	pwmVal_servo = SERVOCENTER;
 	osDelay(100);
 	e_brake = 0;
 	times_acceptable=0;
@@ -1062,13 +1044,13 @@ void moveCarStraightSensor(int usTarget)
 void moveCarStop()
 {
 	e_brake = 0;
-	pwmVal_servo = 149;
+	pwmVal_servo = SERVOCENTER;
 	osDelay(200);
 }
 
 void moveCarRight(double angle)
 {
-	pwmVal_servo = 230;
+	pwmVal_servo = SERVORIGHT;
 	osDelay(10);
 	e_brake = 0;
 	times_acceptable=0;
@@ -1094,7 +1076,7 @@ void moveCarSlideRight(int value){
 //	times_acceptable=0;
 //	moveCarStraight((600/75.19)*sign);
 //	while(finishCheck());
-	pwmVal_servo = 230;
+	pwmVal_servo = SERVORIGHT;
 
 	osDelay(200);
 
@@ -1128,7 +1110,7 @@ void moveCarSlideLeft(int value){
 	times_acceptable=0;
 	moveCarLeft(value*sign);
 	while(finishCheck());
-	pwmVal_servo = 230;
+	pwmVal_servo = SERVORIGHT;
 	osDelay(5);
 
 	times_acceptable=0;
@@ -1147,14 +1129,14 @@ void moveCarRight90(double angle)
 	if(sign==1)moveCarStraight(1.8);
 	else moveCarStraight(8.2);
 	while(finishCheck());
-	pwmVal_servo = 230;
+	pwmVal_servo = SERVORIGHT;
 
 	osDelay(500);
 
 	times_acceptable=0;
 	moveCarRight(angle);
 	while(finishCheck());
-	pwmVal_servo = 149;
+	pwmVal_servo = SERVOCENTER;
 
 	osDelay(500);
 
@@ -1224,15 +1206,15 @@ int PID_Control(int error, int right)
 	}
 
 	if(error > 2000){
-		outputPWM += 2000;
+		outputPWM += 3200;
 	}else if(error > 500){
-		outputPWM += 1800;
+		outputPWM += 2500;
 	}else if(error > 200){
-		outputPWM += 1600;
+		outputPWM += 1800;
 	}else if(error > 100){
-		outputPWM += 1300;
+		outputPWM += 800;
 	}else if(error > 50){
-		outputPWM += 1100;
+		outputPWM += 400;
 	}else if(error >=1){
 		times_acceptable++;
 		outputPWM += 0;
@@ -1274,17 +1256,17 @@ int PID_Angle_30(double errord,  int right)
 
 
 	if(error > 300){
-		outputPWM += 2000;
+		outputPWM += 2500;
 	}else if(error > 200){
-		outputPWM += 1800;
+		outputPWM += 2000;
 	}else if(error > 100){
-		outputPWM += 1600;
+		outputPWM += 1700;
 	}else if(error > 50){
-		outputPWM += 1200;
+		outputPWM += 1600;
 	}else if(error > 20){
-		outputPWM += 1000;
-	}else if(error > 10){
 		outputPWM += 800;
+	}else if(error > 10){
+		outputPWM += 500;
 	}else if(error > 3){
 		times_acceptable++;
 		outputPWM += 0;
@@ -1391,11 +1373,11 @@ int PID_Juke(double error, int right)
 	}
 
 	if(error > 40){
-		outputPWM += 2000;
+		outputPWM += 3100;
 	}else if(error > usTargetGLOBAL+9){
-		outputPWM += 1300;
+		outputPWM += 1400;
 	}else if(error > usTargetGLOBAL+.5){
-		outputPWM += 900; //900
+		outputPWM += 700; //900
 	}else if(error <=usTargetGLOBAL+.5){
 		times_acceptable++;
 		outputPWM += 0;
@@ -1408,9 +1390,10 @@ int PID_Juke(double error, int right)
 	return outputPWM;
 
 }
+
 int finishCheck(){
-//	buzzerBeep(20);
-	if (times_acceptable > MAX_ACCEPTABLE_TIMES){
+
+	if (times_acceptable > 4){
 		e_brake = 1;
 		pwmVal_L = pwmVal_R = 0;
 		times_acceptable = 0;
@@ -1568,7 +1551,14 @@ void StartMotorTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-		htim1.Instance->CCR4 = pwmVal_servo;
+
+	  if (pwmVal_servo!= oldPwmVal_servo){
+		  htim1.Instance->CCR4 = pwmVal_servo;
+		  oldPwmVal_servo = pwmVal_servo;
+		  osDelay(200);
+	  	 }
+	  htim1.Instance->CCR4 = pwmVal_servo;
+
 		double error_angle = target_angle - total_angle;
 
 		if (pwmVal_servo < 127){ //106 //TURN LEFT
@@ -1667,7 +1657,7 @@ void StartMotorTask(void *argument)
 
 		__HAL_TIM_SetCompare(&htim8,TIM_CHANNEL_1,pwmVal_L);
 		__HAL_TIM_SetCompare(&htim8,TIM_CHANNEL_2,pwmVal_R);
-		osDelay(1);
+		osDelay(10);
 
 		if (times_acceptable>1000){
 			times_acceptable=1001;
@@ -1693,7 +1683,7 @@ void StartOledTask(void *argument)
 	uint8_t righty[20] = {0};
 	uint8_t motorD[20] = {0};
 	uint8_t check[20] = {0};
-	uint8_t deugMsg[20] = "hello\0";
+	uint8_t debugMsg[20] = "hello\0";
 	uint32_t adcValue=0;
 	uint32_t adcValue2=0;
 
@@ -1771,8 +1761,8 @@ void StartGyroTask(void *argument)
 	osDelay(300);
 	buzzerBeep(100);
 	while(ticker<100){
-//		osDelay(50);
 		buzzerBeep(25);
+//		osDelay(50);
 		readByte(0x37, val);
 		angular_speed = (val[0] << 8) | val[1];
 		trash +=(double)((double)angular_speed)*((HAL_GetTick() - tick)/16400.0);
@@ -1780,14 +1770,16 @@ void StartGyroTask(void *argument)
 		offset += angular_speed;
 		ticker++;
 	}
-	buzzerBeep(100);
+	buzzerBeep(2000);
+	osDelay(200);
+	buzzerBeep(500);
 	offset = offset/(ticker);
 	tick = HAL_GetTick();
 	notdone=0;
   /* Infinite loop */
   for(;;)
   {
-		osDelay(50);
+		osDelay(10);
 		readByte(0x37, val);
 		angular_speed = (val[0] << 8) | val[1];
 		total_angle +=(double)((double)angular_speed - offset)*((HAL_GetTick() - tick)/16400.0);
@@ -1795,6 +1787,13 @@ void StartGyroTask(void *argument)
 		ticker -= angular_speed;
 		ticker++;
 
+//		char hello[50] = {0};
+//		double diff = total_angle - old;
+//		int decimals = abs((int)((diff-(int)(diff))*10000));
+//		int offdeci = abs((int)((offset-(int)(offset))*10000));
+//		sprintf(hello,"G%d.%d: %d.%d \0", (int)offset,offdeci,(int)diff, decimals);
+//		old = total_angle;
+//		HAL_UART_Transmit(&huart3, hello, 20,0xFFFF);
   }
 
   /* USER CODE END StartGyroTask */
@@ -1830,7 +1829,7 @@ void StartIRSensorTask(void *argument)
 		voltage2 = (float) (ADC_VAL2*5)/4095;
 		irDistance2 = roundf(29.988 *pow(voltage2 , -1.173));
 
-		osDelay(10);
+		osDelay(20);
 
 
 	  }
@@ -1936,24 +1935,32 @@ void StartEncoderLeftTask(void *argument)
 void StartJukeTask(void *argument)
 {
   /* USER CODE BEGIN StartJukeTask */
+	htim1.Instance->CCR4 = (SERVOCENTER + 15); //Centre + 15
+	osDelay(100);
+	htim1.Instance->CCR4 = (SERVOCENTER - 15); //Centre - 15
+	osDelay(100);
+	htim1.Instance->CCR4 = pwmVal_servo; //Centre
+
   /* Infinite loop */
   for(;;)
   {
-
-// wait for gyro to finish init before proceeding
 	while(notdone){
 	  osDelay(10);
 	}
 
 	osDelay(150);
 
-	aRxBuffer[0] = 'S';   //HERE IF HARDCODE -------------------------
+//	aRxBuffer[0] = 'S';   //HERE IF HARDCODE -------------------------
 
 
 	while(aRxBuffer[0]!='S'){
 		osDelay(5);
 	}
-//	buzzerBeep(2000);
+	htim1.Instance->CCR4 = (SERVOCENTER + 15); //Centre + 15
+	osDelay(100);
+	htim1.Instance->CCR4 = (SERVOCENTER - 15); //Centre - 15
+	osDelay(100);
+	htim1.Instance->CCR4 = pwmVal_servo; //Centre
 	//HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer On
 
 	rightEncoderVal = leftEncoderVal=0;
@@ -1975,7 +1982,7 @@ void StartJukeTask(void *argument)
 	osDelay(5);
 
 
-	aRxBuffer[0] = 'L';   //HERE IF HARDCODE-------------------------
+//	aRxBuffer[0] = 'L';   //HERE IF HARDCODE-------------------------
 //	update=2;  //HERE IF HARDCODE-------------------------
 
 	nexttask = 'Z';
@@ -1994,28 +2001,25 @@ void StartJukeTask(void *argument)
 	turn90 = 0;
 	if (nexttask == 'R'){  //FIRST ARROW
 
-		pwmVal_servo = 238;
+		pwmVal_servo = SERVORIGHT;
 		osDelay(25);
 
 		times_acceptable=0;
 		moveCarRight(45);
-		debug("01\n");
 		while(finishCheck());
 
-		pwmVal_servo = 101;
+		pwmVal_servo = SERVOLEFT;
 		osDelay(50);
 
 		times_acceptable=0;
 		moveCarLeft(95);
-		debug("02\n");
 		while(finishCheck());
 
-		pwmVal_servo = 238;
+		pwmVal_servo = SERVORIGHT;
 		osDelay(50);
 
 		times_acceptable=0;
 		moveCarRight(45);
-		debug("03\n");
 		while(finishCheck());
 
 		pwmVal_servo = 149;
@@ -2023,35 +2027,33 @@ void StartJukeTask(void *argument)
 		target_angle -= 5;
 
 
-		acknowledgeCompletion();
 	}
 	else if(nexttask == 'L'){	//First arrow is left
-
-		pwmVal_servo = 101;
+		goodluck =1;
+		pwmVal_servo = SERVOLEFT;
 		osDelay(25);
 
 		times_acceptable=0;
 		moveCarLeft(50);
-		debug("04\n");
 		while(finishCheck());
 
-		pwmVal_servo = 238;
+		pwmVal_servo = SERVORIGHT;
 		osDelay(50);
 
 		times_acceptable=0;
 		moveCarRight(95);
-		debug("05\n");
 		while(finishCheck());
 
-		pwmVal_servo = 101;
+		pwmVal_servo = SERVOLEFT;
 		osDelay(50);
 
 		times_acceptable=0;
 		moveCarLeft(45);
-		debug("06\n");
 		while(finishCheck());
 
-		pwmVal_servo = 149;
+		pwmVal_servo = SERVORIGHT;
+		osDelay(500);
+		pwmVal_servo = 154;
 		osDelay(25);
 		target_angle += 5;
 
@@ -2060,14 +2062,13 @@ void StartJukeTask(void *argument)
 	turn90 = 1;
 
 
-	aRxBuffer[0] = 'D';   //HERE IF HARDCODE-------------------------
+//	aRxBuffer[0] = 'D';   //HERE IF HARDCODE-------------------------
 
 	if(Distance>900 || Distance <5 ){
 		errorcorrection = 1;
 		times_acceptable=0;
 		leftEncoderVal = rightEncoderVal = 0;
-		moveCarStraight(-5);
-		debug("07\n");
+		moveCarStraight(-8);
 		while(finishCheck());
 		errorcorrection = 0;
 	}
@@ -2077,12 +2078,16 @@ void StartJukeTask(void *argument)
 //	while(aRxBuffer[0]!='D'){
 //		osDelay(5);
 //	}
-
 	//HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer On
 
 
-	pwmVal_servo = 149;  //MOVE TO THE 2ND
-	osDelay(10);
+	htim1.Instance->CCR4 = (SERVOCENTER + 15); //Centre + 15
+	osDelay(100);
+	htim1.Instance->CCR4 = (SERVOCENTER - 15); //Centre - 15
+	osDelay(100);
+	pwmVal_servo = SERVOCENTER; //kyle  //MOVE TO THE 2ND OBSTACLE
+
+
 	rightEncoderVal = 0;
 	leftEncoderVal = 0;
 
@@ -2090,7 +2095,6 @@ void StartJukeTask(void *argument)
 	errorcorrection = 1;
 	times_acceptable=0;
 	moveCarStraightSensor(28);
-	debug("08\n");
 	while(finishCheck());
 	errorcorrection = 0;
 	straightUS = 0;
@@ -2103,7 +2107,7 @@ void StartJukeTask(void *argument)
 
 
 
-	aRxBuffer[0] = 'R';  //HERE IF HARDCODE-------------------------
+//	aRxBuffer[0] = 'R';  //HERE IF HARDCODE-------------------------
 //	update=4; //HERE IF HARDCODE-------------------------
 
 
@@ -2124,41 +2128,39 @@ void StartJukeTask(void *argument)
 	if (nexttask == 'R'){  //Second arrow is right
 
 
-		pwmVal_servo = 230;
+		pwmVal_servo = SERVORIGHT;
 		osDelay(50);
 		times_acceptable=0;
 		moveCarRight(88);
-		debug("09\n");
 		while(finishCheck());
 		osDelay(50);
 		pwmVal_servo = 149;
 		osDelay(200);
 
-		times_acceptable=0;
-		moveCarStraight(-13); //-13
-		debug("10\n");
-		while(finishCheck());
-		//pwmVal_servo = 149;
-		osDelay(100);
+//		times_acceptable=0;
+//		moveCarStraight(-13); //-13
+//		while(finishCheck());
+//		//pwmVal_servo = 149;
+//		osDelay(100);
 
 		while(irDistance1<30){
 			times_acceptable=0;
 			moveCarStraight(8);
-			debug("11\n");
-			while(finishCheck()); // check if this is too long
+			while(finishCheck());
 			pwmVal_servo = 149;
-			osDelay(100); // check if this is too long
+			osDelay(100);
 		}
 
 
-		pwmVal_servo = 106;
+		pwmVal_servo = 101;
 		osDelay(20);
 		times_acceptable=0;
 		moveCarLeft(180);
-		debug("12\n");
 		while(finishCheck());
 		osDelay(200);
 
+		pwmVal_servo = 240;
+		osDelay(500);
 		pwmVal_servo = 149;
 		osDelay(20);
 
@@ -2166,11 +2168,12 @@ void StartJukeTask(void *argument)
 		times_acceptable=0;
 		leftEncoderVal = rightEncoderVal = 0;
 
+//		moveCarStraight(50);
+//		while(finishCheck());
 		while(irDistance1<30 || obsTwoFlag==0){
 			times_acceptable=0;
 			osDelay(200);
-			moveCarStraight(14);
-			debug("13\n");
+			moveCarStraight(12);
 			while(finishCheck());
 			pwmVal_servo = 149;
 
@@ -2180,55 +2183,59 @@ void StartJukeTask(void *argument)
 
 		errorcorrection = 0;
 
-		pwmVal_servo = 106;
+		pwmVal_servo = 110;
 		osDelay(20);
 
 		times_acceptable=0;
-		moveCarLeft(90);
-		debug("14\n");
+		moveCarLeft(85);
 		while(finishCheck());
-
-		pwmVal_servo = 149;
+		pwmVal_servo = 240;
+		osDelay(500);
+		pwmVal_servo = 154;
 		osDelay(20);
 
 		acknowledgeCompletion1();
 
 	}
 	else if(nexttask == 'L'){
-		pwmVal_servo = 101;
+		pwmVal_servo = SERVOLEFT;
 		osDelay(50);
 		times_acceptable=0;
-		moveCarLeft(88);
-		debug("15\n");
+		if(goodluck==0)
+			moveCarLeft(90);
+		else
+			moveCarLeft(82);
 		while(finishCheck());
 		osDelay(50);
+		pwmVal_servo = 220;
+		osDelay(1000);
 		pwmVal_servo = 149;
-		osDelay(200);
+		osDelay(20);
 
-		times_acceptable=0;
-		moveCarStraight(-13); //-13
-		debug("16\n");
-		while(finishCheck());
-		//pwmVal_servo = 149;
-		osDelay(100);
+//		times_acceptable=0;
+//		moveCarStraight(-13); //-13
+//		while(finishCheck());
+//		//pwmVal_servo = 149;
+//		osDelay(100);
 
 		while(irDistance2<30){
 			times_acceptable=0;
 			moveCarStraight(8);
-			debug("17\n");
-			while(finishCheck()); // checkHang
+			while(finishCheck());
 			pwmVal_servo = 149;
-			osDelay(100); // checkHang
+			osDelay(100);
 		}
 
-		pwmVal_servo = 230;
+		pwmVal_servo = 220;
 		osDelay(20);
 
 		times_acceptable=0;
-		moveCarRight(180);
-		debug("18\n");
-		while(finishCheck()); // checkHang
-		osDelay(200); // checkHang
+		if(goodluck==0)
+			moveCarRight(180);
+		else
+			moveCarRight(170);
+		while(finishCheck());
+		osDelay(200);
 
 		pwmVal_servo = 149;
 		osDelay(20);
@@ -2243,8 +2250,7 @@ void StartJukeTask(void *argument)
 			times_acceptable=0;
 			osDelay(200);
 			moveCarStraight(14);
-			debug("19\n");
-			while(finishCheck()); // checkHang
+			while(finishCheck());
 			pwmVal_servo = 149;
 
 			obsTwoLength++;
@@ -2254,17 +2260,19 @@ void StartJukeTask(void *argument)
 
 		errorcorrection = 0;
 
-		pwmVal_servo = 230;
+		pwmVal_servo = SERVORIGHT;
 		osDelay(20);
 
 		times_acceptable = 0;
-		moveCarRight(90);
-		debug("20\n");
-		while(finishCheck()); // checkHang
+		if (goodluck==0)
+			moveCarRight(90);
+		else
+			moveCarRight(100);
+		while(finishCheck());
 
 		pwmVal_servo = 149;
-		osDelay(20); // checkHang
 		acknowledgeCompletion1();
+		osDelay(20);
 	}
 
 	// for slide turning idea
@@ -2275,9 +2283,8 @@ void StartJukeTask(void *argument)
 	straightUS = 0;
 	errorcorrection = 1;
 	times_acceptable = 0;
-	moveCarStraight((movebackR/75.6) - 85);
+	moveCarStraight((movebackR/75.6) - 90);
 	while(finishCheck());
-//	while(finishCheck());
 	errorcorrection = 0;
 
 	// for triangle idea
@@ -2305,27 +2312,28 @@ void StartJukeTask(void *argument)
 //		osDelay(20);
 		uint8_t hello [20] = {0};
 
-		pwmVal_servo = 106;
+		pwmVal_servo = 100;
 		times_acceptable=0;
-		moveCarLeft(70);
-		while(finishCheck()); // checkHang
+		moveCarLeft(90);
+		while(finishCheck());
 
-
+		pwmVal_servo = 210;
+		osDelay(500);
 		pwmVal_servo = 149;
 		osDelay(50);
 		times_acceptable=0;
 		int x = ((((obsTwoLength*14)/2)) > 55)? 55:(((obsTwoLength*14)/2));
-		moveCarStraight(x);
+		moveCarStraight(x/3.3);
 		while(finishCheck());
 		osDelay(50);
 		uint8_t clear[20] = {0};
 		sprintf(clear, "Dist: %d \0", (int)(((obsTwoLength*14)/2)));
 		OLED_ShowString(0, 10, clear);
 
-		pwmVal_servo = 230;
+		pwmVal_servo = SERVORIGHT;
 		times_acceptable=0;
-		moveCarRight(70);
-		while(finishCheck()); // checkHang
+		moveCarRight(90);
+		while(finishCheck());
 		osDelay(10);
 
 		pwmVal_servo = 149;
@@ -2341,7 +2349,7 @@ void StartJukeTask(void *argument)
 //		pwmVal_servo = 149;
 //		osDelay(20);
 
-		pwmVal_servo = 230;
+		pwmVal_servo = SERVORIGHT;
 		times_acceptable=0;
 		moveCarRight(70);
 		while(finishCheck());
@@ -2351,7 +2359,7 @@ void StartJukeTask(void *argument)
 		osDelay(50);
 		times_acceptable=0;
 		int x = ((((obsTwoLength*14)/2)) > 55)? 55:(((obsTwoLength*14)/2));
-		moveCarStraight(x);
+		moveCarStraight(x/2);
 		while(finishCheck());
 		osDelay(50);
 		uint8_t clear[20] = {0};
@@ -2362,7 +2370,7 @@ void StartJukeTask(void *argument)
 		pwmVal_servo = 106;
 		times_acceptable=0;
 		moveCarLeft(70);
-		while(finishCheck()); // checkHang
+		while(finishCheck());
 		osDelay(10);
 
 		pwmVal_servo = 149;
@@ -2380,8 +2388,8 @@ void StartJukeTask(void *argument)
 	straightUS = 1;
 	errorcorrection = 1;
 	times_acceptable=0;
-	moveCarStraightSensor(22);
-	while(finishCheck()); // checkHang
+	moveCarStraightSensor(12);
+	while(finishCheck());
 	errorcorrection = 0;
 	straightUS = 0;
 
