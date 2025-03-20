@@ -202,19 +202,6 @@ float voltage1, voltage2 = 0;
 int irDistance1, irDistance2 = 0;
 uint32_t ADC_VAL1,ADC_VAL2 = 0;
 
-// Low-Pass Filter for IR Sensor
-#define FILTER_ALPHA2 0.1 // Filter coefficient
-
-// Left IR
-float filtered_irreading_L = 600;  // Filtered value for left IR sensor
-uint16_t filtered_irreading_L_int = 0;
-float distanceirr_L = 0;
-uint16_t distanceir_L = 0;
-// Right IR
-float filtered_irreading_R = 600;  // Filtered value for right IR sensor
-uint16_t filtered_irreading_R_int = 0;
-float distanceirr_R = 0;
-uint16_t distanceir_R = 0;
 
 // Gyro
 double total_angle=0;
@@ -290,60 +277,85 @@ int main(void)
   // for real task
   HAL_UART_Receive_IT(&huart3, (uint8_t *) aRxBuffer, 1);
 
+//  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+//
+//  /* creation of MotorTask */
+//  motorTaskHandle = osThreadNew(StartMotorTask, NULL, &motorTask_attributes);
+//
+//  /* creation of oledTask */
+//  oledTaskHandle = osThreadNew(StartOledTask, NULL, &oledTask_attributes);
+//
+//  /* creation of rpiTask */
+//  rpiTaskHandle = osTreadNew(StartRpiTask, NULL, &rpiTask_attributes);
+//
+//  /* creation of gyroTask */
+//  gyroTaskHandle = osTreadNew(StartGyroTask, NULL, &gyroTask_attributes);
+//
+//  /* creation of bulleyesTask */
+//  bulleyesTaskHandle = osThreadNew(StartBulleyesTask, NULL, &bulleyesTask_attributes);
+//
+//	/* creation of encoderRightTas */
+//	encoderRightTasHandle = osThreadNew(StartEncoderRightTask, NULL, &encoderRightTas_attributes);
+//
+//  /* creation of encoderLeftTask */
+//  encoderLeftTaskHandle = osThreadNew(StartEncoderLeftTask, NULL, &encoderLeftTask_attributes);
+
+    defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+    /* creation of MotorTask */
+    motorTaskHandle = osThreadNew(StartMotorTask, NULL, &motorTask_attributes);
+
+    /* creation of oledTask */
+    oledTaskHandle = osThreadNew(StartOledTask, NULL, &oledTask_attributes);
+
+    /* creation of rpiTask */
+    rpiTaskHandle = osThreadNew(StartRpiTask, NULL, &rpiTask_attributes);
+
+    /* creation of gyroTask */
+    gyroTaskHandle = osThreadNew(StartGyroTask, NULL, &gyroTask_attributes);
+
+    /* creation of bulleyesTask */
+    bulleyesTaskHandle = osThreadNew(StartBulleyesTask, NULL, &bulleyesTask_attributes);
+
+	/* creation of encoderRightTas */
+	encoderRightTasHandle = osThreadNew(StartEncoderRightTask, NULL, &encoderRightTas_attributes);
+
+	/* creation of encoderLeftTask */
+	encoderLeftTaskHandle = osThreadNew(StartEncoderLeftTask, NULL, &encoderLeftTask_attributes);
+
+	/* creation of startJukeTask */
+	jukeTaskHandle = osThreadNew(StartJukeTask, NULL, &jukeTask_attributes);
+
+
 
   /* USER CODE END 2 */
 
   /* Init scheduler */
   osKernelInitialize();
-
-  /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
-
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
-
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
-
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
-
-  /* Create the thread(s) */
-  /* creation of ultrasonicTask */
-  ultrasonicTaskHandle = osThreadNew(StartUSTask, NULL, &ultrasonicTask_attributes);
-
-  /* creation of motorTask */
-  motorTaskHandle = osThreadNew(StartMotorTask, NULL, &motorTask_attributes);
-
-  /* creation of oledTask */
-  oledTaskHandle = osThreadNew(StartOledTask, NULL, &oledTask_attributes);
-
-  /* creation of gyroTask */
-  gyroTaskHandle = osThreadNew(StartGyroTask, NULL, &gyroTask_attributes);
-
-  /* creation of irSensorTask */
-  irSensorTaskHandle = osThreadNew(StartIRSensorTask, NULL, &irSensorTask_attributes);
-
-  /* creation of encoderRightTas */
-  encoderRightTasHandle = osThreadNew(StartEncoderRightTask, NULL, &encoderRightTas_attributes);
-
-  /* creation of encoderLeftTask */
-  encoderLeftTaskHandle = osThreadNew(StartEncoderLeftTask, NULL, &encoderLeftTask_attributes);
-
-  /* creation of jukeTask */
-  jukeTaskHandle = osThreadNew(StartJukeTask, NULL, &jukeTask_attributes);
-
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
-
-  /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
-  /* USER CODE END RTOS_EVENTS */
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2023 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/**
+* @}
+*/
+/**
+* @}
+*/
 
   /* Start scheduler */
   osKernelStart();
@@ -878,9 +890,6 @@ static void MX_USART3_UART_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  /* USER CODE BEGIN MX_GPIO_Init_1 */
-
-  /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
@@ -929,9 +938,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(USER_PB_GPIO_Port, &GPIO_InitStruct);
 
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
-
-  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -1812,11 +1818,30 @@ void StartIRSensorTask(void *argument)
 {
   /* USER CODE BEGIN StartIRSensorTask */
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END StartIRSensorTask */
+	  for(;;)
+	  {
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 10);
+		ADC_VAL1 = HAL_ADC_GetValue(&hadc1);
+		HAL_ADC_Stop(&hadc1);
+
+
+		HAL_ADC_Start(&hadc3);
+		HAL_ADC_PollForConversion(&hadc3, 10);
+		ADC_VAL2 = HAL_ADC_GetValue(&hadc3);
+		HAL_ADC_Stop(&hadc3);
+
+
+		voltage1 = (float) (ADC_VAL1*5)/4095;
+		irDistance1 = roundf(29.988 *pow(voltage1 , -1.173));
+		voltage2 = (float) (ADC_VAL2*5)/4095;
+		irDistance2 = roundf(29.988 *pow(voltage2 , -1.173));
+
+		osDelay(10);
+
+
+	  }
+  /* USER CODE END StartBulleyesTask */
 }
 
 /* USER CODE BEGIN Header_StartEncoderRightTask */
@@ -1945,7 +1970,6 @@ void StartJukeTask(void *argument)
 	moveCarStraightSensor(26); //doesnt change the direction // car stops 26 cm from ultrasonic sensor
 	//osDelay(500);
 	while(finishCheck());
-	debug("00\n");
 	osDelay(50);
 	errorcorrection = 0;
 	straightUS = 0;
@@ -1962,7 +1986,7 @@ void StartJukeTask(void *argument)
 //	update=2;  //HERE IF HARDCODE-------------------------
 
 	nexttask = 'Z';
-	while(nexttask == 'Z'){ // just to ensure that the next command sent isnt missed
+	while(nexttask == 'Z'){
 		if(/*update==2 &&*/ aRxBuffer[0]=='L' || aRxBuffer[0]=='R'){
 				nexttask = aRxBuffer[0];
 		}
@@ -2091,7 +2115,7 @@ void StartJukeTask(void *argument)
 
 
 	nexttask = 'Z';
-	while(nexttask == 'Z'){ // just to ensure that the next command sent isnt missed
+	while(nexttask == 'Z'){
 		if(/*update==4 &&*/ (aRxBuffer[0]=='L' || aRxBuffer[0]=='R')){
 				nexttask = aRxBuffer[0];
 		}
@@ -2104,6 +2128,7 @@ void StartJukeTask(void *argument)
 
 	// 53 - lab
 	if (nexttask == 'R'){  //Second arrow is right
+
 
 		pwmVal_servo = 230;
 		osDelay(50);
@@ -2232,6 +2257,7 @@ void StartJukeTask(void *argument)
 			if (irDistance2<30) obsTwoFlag=1;
 		}
 
+
 		errorcorrection = 0;
 
 		pwmVal_servo = 230;
@@ -2273,6 +2299,7 @@ void StartJukeTask(void *argument)
 //	errorcorrection = 0;
 
 	// second half
+
 
 
 	// turn into carpark using slide idea
