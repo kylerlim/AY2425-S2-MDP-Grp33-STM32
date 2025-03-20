@@ -1206,15 +1206,15 @@ int PID_Control(int error, int right)
 	}
 
 	if(error > 2000){
-		outputPWM += 3200;
+		outputPWM += 3800;
 	}else if(error > 500){
-		outputPWM += 2500;
+		outputPWM += 2900;
 	}else if(error > 200){
-		outputPWM += 1800;
+		outputPWM += 2600;
 	}else if(error > 100){
-		outputPWM += 800;
+		outputPWM += 1000;
 	}else if(error > 50){
-		outputPWM += 400;
+		outputPWM += 800;
 	}else if(error >=1){
 		times_acceptable++;
 		outputPWM += 0;
@@ -1373,11 +1373,11 @@ int PID_Juke(double error, int right)
 	}
 
 	if(error > 40){
-		outputPWM += 2800;
+		outputPWM += 3200;
 	}else if(error > usTargetGLOBAL+9){
-		outputPWM += 1800;
+		outputPWM += 2200;
 	}else if(error > usTargetGLOBAL+5){
-		outputPWM += 1400;
+		outputPWM += 1800;
 	}else if(error > usTargetGLOBAL+.5){
 		outputPWM += 700; //900
 	}else if(error <=usTargetGLOBAL+.5){
@@ -1557,7 +1557,7 @@ void StartMotorTask(void *argument)
 	  if (pwmVal_servo!= oldPwmVal_servo){
 		  htim1.Instance->CCR4 = pwmVal_servo;
 		  oldPwmVal_servo = pwmVal_servo;
-		  osDelay(200);
+		  osDelay(500);
 	  	 }
 	  htim1.Instance->CCR4 = pwmVal_servo;
 
@@ -2078,17 +2078,11 @@ void StartJukeTask(void *argument)
 
 
 
-//	while(aRxBuffer[0]!='D'){
-//		osDelay(5);
-//	}
-	//HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer On
-
-
 	htim1.Instance->CCR4 = (SERVOCENTER + 15); //Centre + 15
 	osDelay(100);
 	htim1.Instance->CCR4 = (SERVOCENTER - 15); //Centre - 15
 	osDelay(100);
-	pwmVal_servo = SERVOCENTER; //kyle  //MOVE TO THE 2ND OBSTACLE
+	pwmVal_servo = SERVOCENTER;
 
 
 	rightEncoderVal = 0;
@@ -2290,29 +2284,12 @@ void StartJukeTask(void *argument)
 	while(finishCheck());
 	errorcorrection = 0;
 
-	// for triangle idea
-	// first half
-//	int moveBack = 0;
-//	moveBack = (moveBackRightRun1 + moveBackLeftRun1)/2 + 11007;
-//	leftEncoderVal = rightEncoderVal = 0;
-//	straightUS = 0;
-//	errorcorrection = 1;
-//	times_acceptable = 0;
-//	moveCarStraight((moveBack/75.6));
-//	while(finishCheck());
-//	errorcorrection = 0;
-
-	// second half
 
 
 
 	// turn into carpark using slide idea
 	if(nexttask == 'R'){ //SECOND ARROW IS RIGHT
-//		times_acceptable=0;
-//		moveCarSlideLeft(80); //75
-//		while(finishCheck());
-//		pwmVal_servo = 149;
-//		osDelay(20);
+
 		uint8_t hello [20] = {0};
 
 		pwmVal_servo = 100;
