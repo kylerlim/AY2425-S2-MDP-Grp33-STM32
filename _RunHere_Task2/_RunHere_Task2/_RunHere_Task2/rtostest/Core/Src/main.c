@@ -300,7 +300,7 @@ int main(void)
 //  /* creation of encoderLeftTask */
 //  encoderLeftTaskHandle = osThreadNew(StartEncoderLeftTask, NULL, &encoderLeftTask_attributes);
 
-    defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  ultrasonicTaskHandle = osThreadNew(StartUSTask, NULL, &ultrasonicTask_attributes);
 
     /* creation of MotorTask */
     motorTaskHandle = osThreadNew(StartMotorTask, NULL, &motorTask_attributes);
@@ -309,13 +309,13 @@ int main(void)
     oledTaskHandle = osThreadNew(StartOledTask, NULL, &oledTask_attributes);
 
     /* creation of rpiTask */
-    rpiTaskHandle = osThreadNew(StartRpiTask, NULL, &rpiTask_attributes);
+//    rpiTaskHandle = osThreadNew(StartRpiTask, NULL, &rpiTask_attributes);
 
     /* creation of gyroTask */
     gyroTaskHandle = osThreadNew(StartGyroTask, NULL, &gyroTask_attributes);
 
     /* creation of bulleyesTask */
-    bulleyesTaskHandle = osThreadNew(StartBulleyesTask, NULL, &bulleyesTask_attributes);
+    irSensorTaskHandle = osThreadNew(StartIRSensorTask, NULL, &irSensorTask_attributes);
 
 	/* creation of encoderRightTas */
 	encoderRightTasHandle = osThreadNew(StartEncoderRightTask, NULL, &encoderRightTas_attributes);
@@ -1795,13 +1795,6 @@ void StartGyroTask(void *argument)
 		ticker -= angular_speed;
 		ticker++;
 
-//		char hello[50] = {0};
-//		double diff = total_angle - old;
-//		int decimals = abs((int)((diff-(int)(diff))*10000));
-//		int offdeci = abs((int)((offset-(int)(offset))*10000));
-//		sprintf(hello,"G%d.%d: %d.%d \0", (int)offset,offdeci,(int)diff, decimals);
-//		old = total_angle;
-//		HAL_UART_Transmit(&huart3, hello, 20,0xFFFF);
   }
 
   /* USER CODE END StartGyroTask */
@@ -1948,13 +1941,13 @@ void StartJukeTask(void *argument)
   {
 
 // wait for gyro to finish init before proceeding
-//	while(notdone){
-//	  osDelay(10);
-//	}
+	while(notdone){
+	  osDelay(10);
+	}
 
 	osDelay(150);
 
-//	aRxBuffer[0] = 'S';   //HERE IF HARDCODE -------------------------
+	aRxBuffer[0] = 'S';   //HERE IF HARDCODE -------------------------
 
 
 	while(aRxBuffer[0]!='S'){
@@ -1982,7 +1975,7 @@ void StartJukeTask(void *argument)
 	osDelay(5);
 
 
-//	aRxBuffer[0] = 'L';   //HERE IF HARDCODE-------------------------
+	aRxBuffer[0] = 'L';   //HERE IF HARDCODE-------------------------
 //	update=2;  //HERE IF HARDCODE-------------------------
 
 	nexttask = 'Z';
@@ -2067,7 +2060,7 @@ void StartJukeTask(void *argument)
 	turn90 = 1;
 
 
-//	aRxBuffer[0] = 'D';   //HERE IF HARDCODE-------------------------
+	aRxBuffer[0] = 'D';   //HERE IF HARDCODE-------------------------
 
 	if(Distance>900 || Distance <5 ){
 		errorcorrection = 1;
@@ -2084,6 +2077,7 @@ void StartJukeTask(void *argument)
 //	while(aRxBuffer[0]!='D'){
 //		osDelay(5);
 //	}
+
 	//HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10); //Buzzer On
 
 
@@ -2109,7 +2103,7 @@ void StartJukeTask(void *argument)
 
 
 
-//	aRxBuffer[0] = 'R';  //HERE IF HARDCODE-------------------------
+	aRxBuffer[0] = 'R';  //HERE IF HARDCODE-------------------------
 //	update=4; //HERE IF HARDCODE-------------------------
 
 
