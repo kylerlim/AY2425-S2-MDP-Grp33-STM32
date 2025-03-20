@@ -54,12 +54,12 @@ TIM_HandleTypeDef htim8;
 
 UART_HandleTypeDef huart3;
 
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
+/* Definitions for ultrasonicTask */
+osThreadId_t ultrasonicTaskHandle;
+const osThreadAttr_t ultrasonicTask_attributes = {
+  .name = "ultrasonicTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for motorTask */
 osThreadId_t motorTaskHandle;
@@ -75,24 +75,17 @@ const osThreadAttr_t oledTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
-/* Definitions for rpiTask */
-osThreadId_t rpiTaskHandle;
-const osThreadAttr_t rpiTask_attributes = {
-  .name = "rpiTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
-};
 /* Definitions for gyroTask */
 osThreadId_t gyroTaskHandle;
 const osThreadAttr_t gyroTask_attributes = {
   .name = "gyroTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow1,
+  .priority = (osPriority_t) osPriorityLow2,
 };
-/* Definitions for bulleyesTask */
-osThreadId_t bulleyesTaskHandle;
-const osThreadAttr_t bulleyesTask_attributes = {
-  .name = "bulleyesTask",
+/* Definitions for irSensorTask */
+osThreadId_t irSensorTaskHandle;
+const osThreadAttr_t irSensorTask_attributes = {
+  .name = "irSensorTask",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
@@ -115,7 +108,7 @@ osThreadId_t jukeTaskHandle;
 const osThreadAttr_t jukeTask_attributes = {
   .name = "jukeTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* USER CODE BEGIN PV */
 osThreadId_t IrSensorsTaskHandle;
@@ -138,12 +131,11 @@ static void MX_I2C1_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_ADC3_Init(void);
-void StartDefaultTask(void *argument);
+void StartUSTask(void *argument);
 void StartMotorTask(void *argument);
 void StartOledTask(void *argument);
-void StartRpiTask(void *argument);
 void StartGyroTask(void *argument);
-void StartBulleyesTask(void *argument);
+void StartIRSensorTask(void *argument);
 void StartEncoderRightTask(void *argument);
 void StartEncoderLeftTask(void *argument);
 void StartJukeTask(void *argument);
@@ -1418,7 +1410,7 @@ int PID_Juke(double error, int right)
 }
 int finishCheck(){
 //	buzzerBeep(20);
-	if (times_acceptable > 4){
+	if (times_acceptable > MAX_ACCEPTABLE_TIMES){
 		e_brake = 1;
 		pwmVal_L = pwmVal_R = 0;
 		times_acceptable = 0;
@@ -1487,14 +1479,14 @@ void debug(const char* reply) {
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_StartUSTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the ultrasonicTask thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+/* USER CODE END Header_StartUSTask */
+void StartUSTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
 	uint8_t msg [20];
@@ -1758,139 +1750,6 @@ void StartOledTask(void *argument)
   /* USER CODE END StartOledTask */
 }
 
-/* USER CODE BEGIN Header_StartRpiTask */
-/**
-* @brief Function implementing the rpiTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartRpiTask */
-void StartRpiTask(void *argument)
-{
-  /* USER CODE BEGIN StartRpiTask */
-	char ch = 'A';
-	char old = ')';
-	int signMagnitude = 1;
-  /* Infinite loop */
-	  aRxBuffer[0] = '-';
-	  aRxBuffer[1] = 'W';
-	  aRxBuffer[2] = 'A';
-	  aRxBuffer[3] = 'I';
-	  aRxBuffer[4] = 'T';
-	  while(notdone){
-		  osDelay(100);
-	  }
-  for(;;)
-  {
-//	  magnitude = 0;
-//	  key = aRxBuffer[0];
-//	  direction = aRxBuffer[1];
-//	  magnitude = ((int)(aRxBuffer[2])-48)*100 + ((int)(aRxBuffer[3])-48)*10 + ((int)(aRxBuffer[4])-48);
-//	  sign_magnitude = 1;
-//
-//	  if(direction == 'B' || direction == 'b'){
-//		  magnitude *= -1;
-//		  sign_magnitude = -1;
-//	  }
-//
-//	  if(update){
-//		  update = 0;
-//		if (aRxBuffer[0]!='D'){
-//			old_Buff1[0] = old_Buff[0];
-//			old_Buff1[1] = old_Buff[1];
-//			old_Buff1[2] = old_Buff[2];
-//			old_Buff1[3] = old_Buff[3];
-//			old_Buff1[4] = old_Buff[4];
-//
-//			old_Buff[0] = aRxBuffer[0];
-//			old_Buff[1] = aRxBuffer[1];
-//			old_Buff[2] = aRxBuffer[2];
-//			old_Buff[3] = aRxBuffer[3];
-//			old_Buff[4] = aRxBuffer[4];
-//
-//		}
-//
-//		  switch (key){
-//			  case 'D':
-//				  break;
-//			  case 'S':
-//
-//
-//				  flagDone=1;
-////				  aRxBuffer[0] = 'B';
-////				  aRxBuffer[1] = 'E';
-////				  aRxBuffer[2] = 'G';
-////				  aRxBuffer[3] = 'I';
-////				  aRxBuffer[4] = 'N';
-//				  osDelay(1);
-//				  HAL_UART_Transmit(&huart3, "A", 1,0xFFFF);
-//				  flagDone = 0;
-//
-//
-//
-//				  break;
-////			  case 'R':
-////				 // if(direction=='F'){
-////				  times_acceptable=0;
-////				  moveCarRight90(90*sign_magnitude);
-////				  while(finishCheck());
-////				  flagDone=1;
-////				  aRxBuffer[0] = 'D';
-////				  aRxBuffer[1] = 'O';
-////				  aRxBuffer[2] = 'N';
-////				  aRxBuffer[3] = 'E';
-////				  aRxBuffer[4] = '!';
-////				  osDelay(10);
-////				 // }
-////
-////				  break;
-////			  case 'L':
-////				  times_acceptable=0;
-////				  moveCarLeft90(90*sign_magnitude);
-////				  while(finishCheck());
-////				  flagDone=1;
-////				  aRxBuffer[0] = 'D';
-////				  aRxBuffer[1] = 'O';
-////				  aRxBuffer[2] = 'N';
-////				  aRxBuffer[3] = 'E';
-////				  aRxBuffer[4] = '!';
-////				  osDelay(10);
-////
-////				  break;
-//
-//
-//		  	  case 'P':
-//		  		  buzzerBeep(500);
-//		  		  flagDone=1;
-//		  		  times_acceptable=0;
-//				  aRxBuffer[0] = 'D';
-//				  aRxBuffer[1] = 'O';
-//				  aRxBuffer[2] = 'N';
-//				  aRxBuffer[3] = 'E';
-//				  aRxBuffer[4] = '!';
-//				  osDelay(10);
-//				  break;
-//			  default:
-//				  osDelay(10);
-//				  break;
-//		  }
-
-//	  }
-//
-//
-//
-//	  // send ack back to rpi and ready for next instruction
-//		if(flagDone==1){
-//			flagDone = 0;
-//			debug = 0;
-//		}
-		osDelay(1);
-
-  }
-
-  /* USER CODE END StartRpiTask */
-}
-
 /* USER CODE BEGIN Header_StartGyroTask */
 /**
 * @brief Function implementing the gyroTask thread.
@@ -1948,19 +1807,16 @@ void StartGyroTask(void *argument)
   /* USER CODE END StartGyroTask */
 }
 
-/* USER CODE BEGIN Header_StartBulleyesTask */
+/* USER CODE BEGIN Header_StartIRSensorTask */
 /**
-* @brief Function implementing the bulleyesTask thread.
+* @brief Function implementing the irSensorTask thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_StartBulleyesTask */
-void StartBulleyesTask(void *argument)
+/* USER CODE END Header_StartIRSensorTask */
+void StartIRSensorTask(void *argument)
 {
-  /* USER CODE BEGIN StartBulleyesTask */
-
-
-
+  /* USER CODE BEGIN StartIRSensorTask */
   /* Infinite loop */
 	  for(;;)
 	  {
@@ -2090,6 +1946,8 @@ void StartJukeTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+
+// wait for gyro to finish init before proceeding
 //	while(notdone){
 //	  osDelay(10);
 //	}
