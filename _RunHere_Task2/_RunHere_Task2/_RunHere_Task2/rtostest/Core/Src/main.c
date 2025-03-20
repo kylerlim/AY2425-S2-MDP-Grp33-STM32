@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SERVOCENTER 149
+#define SERVOCENTER 151
 #define SERVORIGHT 210//230 //220
 #define SERVOLEFT 95 //100 //100
 //uint16_t SERVO_LEFT = 72;
@@ -1373,8 +1373,10 @@ int PID_Juke(double error, int right)
 	}
 
 	if(error > 40){
-		outputPWM += 3100;
+		outputPWM += 2800;
 	}else if(error > usTargetGLOBAL+9){
+		outputPWM += 1800;
+	}else if(error > usTargetGLOBAL+5){
 		outputPWM += 1400;
 	}else if(error > usTargetGLOBAL+.5){
 		outputPWM += 700; //900
@@ -1770,9 +1772,9 @@ void StartGyroTask(void *argument)
 		offset += angular_speed;
 		ticker++;
 	}
-	buzzerBeep(2000);
-	osDelay(200);
-	buzzerBeep(500);
+	buzzerBeep(100);
+	buzzerBeep(100);
+	buzzerBeep(100);
 	offset = offset/(ticker);
 	tick = HAL_GetTick();
 	notdone=0;
@@ -1999,7 +2001,7 @@ void StartJukeTask(void *argument)
 
 
 	turn90 = 0;
-	if (nexttask == 'R'){  //FIRST ARROW
+	if (nexttask == 'R'){  //FIRST ARROW IS RIGHT
 
 		pwmVal_servo = SERVORIGHT;
 		osDelay(25);
@@ -2012,14 +2014,14 @@ void StartJukeTask(void *argument)
 		osDelay(50);
 
 		times_acceptable=0;
-		moveCarLeft(95);
+		moveCarLeft(85); // car is facing too left
 		while(finishCheck());
 
 		pwmVal_servo = SERVORIGHT;
 		osDelay(50);
 
 		times_acceptable=0;
-		moveCarRight(35);
+		moveCarRight(38); // 35 // 40
 		while(finishCheck());
 
 		pwmVal_servo = 149;
@@ -2028,7 +2030,8 @@ void StartJukeTask(void *argument)
 
 
 	}
-	else if(nexttask == 'L'){	//First arrow is left
+	else if(nexttask == 'L'){	//FIRST ARROW IS LEFT
+		moveCarStraight(-10);
 		goodluck =1;
 		pwmVal_servo = SERVOLEFT;
 		osDelay(25);
@@ -2125,13 +2128,13 @@ void StartJukeTask(void *argument)
 	}
 
 	// 53 - lab
-	if (nexttask == 'R'){  //Second arrow is right
+	if (nexttask == 'R'){  //SECOND ARROW IS RIGHT
 
 
 		pwmVal_servo = SERVORIGHT;
 		osDelay(50);
 		times_acceptable=0;
-		moveCarRight(83); // 88
+		moveCarRight(85); // 88 // 83
 		while(finishCheck());
 		osDelay(50);
 		pwmVal_servo = 149;
@@ -2155,7 +2158,7 @@ void StartJukeTask(void *argument)
 		pwmVal_servo = 101;
 		osDelay(20);
 		times_acceptable=0;
-		moveCarLeft(180);
+		moveCarLeft(175); // 180
 		while(finishCheck());
 		osDelay(200);
 
@@ -2197,7 +2200,7 @@ void StartJukeTask(void *argument)
 		acknowledgeCompletion1();
 
 	}
-	else if(nexttask == 'L'){
+	else if(nexttask == 'L'){ //SECOND ARROW IS LEFT
 		pwmVal_servo = SERVOLEFT;
 		osDelay(50);
 		times_acceptable=0;
@@ -2283,7 +2286,7 @@ void StartJukeTask(void *argument)
 	straightUS = 0;
 	errorcorrection = 1;
 	times_acceptable = 0;
-	moveCarStraight((movebackR/75.6) - 90);
+	moveCarStraight((movebackR/75.6) - 84); // - 90
 	while(finishCheck());
 	errorcorrection = 0;
 
@@ -2304,7 +2307,7 @@ void StartJukeTask(void *argument)
 
 
 	// turn into carpark using slide idea
-	if(nexttask == 'R'){
+	if(nexttask == 'R'){ //SECOND ARROW IS RIGHT
 //		times_acceptable=0;
 //		moveCarSlideLeft(80); //75
 //		while(finishCheck());
@@ -2314,7 +2317,7 @@ void StartJukeTask(void *argument)
 
 		pwmVal_servo = 100;
 		times_acceptable=0;
-		moveCarLeft(90);
+		moveCarLeft(88); // 90
 		while(finishCheck());
 
 		pwmVal_servo = 210;
@@ -2323,7 +2326,7 @@ void StartJukeTask(void *argument)
 		osDelay(50);
 		times_acceptable=0;
 		int x = ((((obsTwoLength*14)/2)) > 55)? 55:(((obsTwoLength*14)/2));
-		moveCarStraight(x/2.8); // 3.3
+		moveCarStraight(x/4.2); // 3.3 // 4
 		while(finishCheck());
 		osDelay(50);
 		uint8_t clear[20] = {0};
@@ -2342,7 +2345,7 @@ void StartJukeTask(void *argument)
 		acknowledgeCompletion2();
 
 	}
-	else if(nexttask == 'L'){
+	else if(nexttask == 'L'){ //SECOND ARROW IS LEFT
 //		times_acceptable=0;
 //		moveCarSlideRight(80); //70
 //		while(finishCheck());
@@ -2359,7 +2362,7 @@ void StartJukeTask(void *argument)
 		osDelay(50);
 		times_acceptable=0;
 		int x = ((((obsTwoLength*14)/2)) > 55)? 55:(((obsTwoLength*14)/2));
-		moveCarStraight(x/1.5); // 2
+		moveCarStraight(x/3.3); // 2
 		while(finishCheck());
 		osDelay(50);
 		uint8_t clear[20] = {0};
