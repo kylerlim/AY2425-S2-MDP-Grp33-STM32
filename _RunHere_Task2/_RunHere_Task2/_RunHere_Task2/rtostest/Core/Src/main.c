@@ -34,7 +34,7 @@
 /* USER CODE BEGIN PD */
 #define SERVOCENTER 149
 #define SERVORIGHT 210//230 //220
-#define SERVOLEFT 90 //100 //100
+#define SERVOLEFT 95 //100 //100
 //uint16_t SERVO_LEFT = 72;
 //uint16_t SERVO_RIGHT = 200;
 /* USER CODE END PD */
@@ -2019,7 +2019,7 @@ void StartJukeTask(void *argument)
 		osDelay(50);
 
 		times_acceptable=0;
-		moveCarRight(45);
+		moveCarRight(35);
 		while(finishCheck());
 
 		pwmVal_servo = 149;
@@ -2131,7 +2131,7 @@ void StartJukeTask(void *argument)
 		pwmVal_servo = SERVORIGHT;
 		osDelay(50);
 		times_acceptable=0;
-		moveCarRight(88);
+		moveCarRight(83); // 88
 		while(finishCheck());
 		osDelay(50);
 		pwmVal_servo = 149;
@@ -2323,7 +2323,7 @@ void StartJukeTask(void *argument)
 		osDelay(50);
 		times_acceptable=0;
 		int x = ((((obsTwoLength*14)/2)) > 55)? 55:(((obsTwoLength*14)/2));
-		moveCarStraight(x/3.3);
+		moveCarStraight(x/2.8); // 3.3
 		while(finishCheck());
 		osDelay(50);
 		uint8_t clear[20] = {0};
@@ -2359,7 +2359,7 @@ void StartJukeTask(void *argument)
 		osDelay(50);
 		times_acceptable=0;
 		int x = ((((obsTwoLength*14)/2)) > 55)? 55:(((obsTwoLength*14)/2));
-		moveCarStraight(x/2);
+		moveCarStraight(x/1.5); // 2
 		while(finishCheck());
 		osDelay(50);
 		uint8_t clear[20] = {0};
